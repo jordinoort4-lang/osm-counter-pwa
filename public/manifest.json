@@ -1,0 +1,78 @@
+{
+  "name": "OSM Master Strategist - Tactical Counter Engine",
+  "short_name": "OSM Counter",
+  "description": "Advanced tactical counter-strategy generator for Online Soccer Manager",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c1120",
+  "theme_color": "#00aeef",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot1.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshot2.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "categories": ["sports", "productivity"],
+  "orientation": "portrait-primary",
+  "shortcuts": [
+    {
+      "name": "Quick Counter Lookup",
+      "short_name": "Counter",
+      "description": "Get quick counter formation",
+      "url": "/?mode=quick",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Advanced Engine",
+      "short_name": "Advanced",
+      "description": "Full tactical analysis",
+      "url": "/?mode=advanced",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
