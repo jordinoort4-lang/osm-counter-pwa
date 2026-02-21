@@ -1,0 +1,57 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production.local
+
+# Dependencies
+node_modules
+# NOTE: package-lock.json is intentionally NOT ignored.
+# Vercel and Netlify use it for deterministic installs.
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist
+build
+*.tsbuildinfo
+
+# IDE / Editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime
+temp
+tmp
+cache
+.cache
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+.turbo
+.next
+
+# Supabase local
+supabase/.gitignore
+supabase/seed.sql
