@@ -1,530 +1,646 @@
-/* ═══════════════════════════════════════════════════════
-   OSM COUNTER NG — App.css  v4
-═══════════════════════════════════════════════════════ */
+import { useState, useEffect, useCallback, useRef } from "react";
+import { supabase } from "./supabase";
+import CheckoutPage from "./components/CheckoutPage";
+import GoldenTicketModal from "./components/GoldenTicketModal";
+import ExitIntentPopup from "./components/ExitIntentPopup";
+import "./App.css";
+import type { TierKey } from "./lib/stripe_config";
 
-/* ── CSS Variables ───────────────────────────────────── */
-:root {
-  --osm-navy:   #002c62;
-  --osm-cyan:   #00aeef;
-  --osm-gold:   #ffb400;
-  --bg-dark:    #0c1120;
-  --bg-panel:   #131829;
-  --text-bright:#ffffff;
-  --text-dim:   #a0b4c8;
-  --glass:      rgba(0,0,0,0.15);
-  --success:    #00c853;
-  --warning:    #ff9800;
-}
+const PROD_URL = "https://osm-counter-pwa.vercel.app";
+const AUTH_REDIRECT_URL =
+  typeof window !== "undefined" && window.location.hostname === "localhost"
+    ? window.location.origin
+    : PROD_URL;
+const EDGE_URL =
+  "https://egzquylwclewcgpqnoig.supabase.co/functions/v1/osm-counter-tactics";
+const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const AUTH_HEADERS = {
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${ANON_KEY}`,
+  apikey: ANON_KEY,
+} as const;
 
-/* ── Reset ───────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+type StrengthKey = "much-stronger"|"stronger"|"equal"|"weaker"|"much-weaker";
+type FormationType = 0|1|2;
+interface FormationMeta { t:FormationType; d:number; cdm:boolean; cam:boolean; wm:boolean; wg:boolean; wb:boolean; }
+interface OpponentPreset { pressing:number; style:number; tempo:number; oppForwards:string; oppMidfielders:string; oppDefenders:string; marking:string; offside:boolean; playStyle:string; }
+interface AdvancedInputs { strengthLevel:StrengthKey; oppForm:string; oppPlayStyle:string; oppMarking:string; oppPressing:number; oppStyle:number; oppTempo:number; oppForwards:string; oppMidfielders:string; oppDefenders:string; oppOffside:boolean; venue:string; pitchLv:string; campInt:string; secretTrain:number; }
+interface StyleBasedSliderPresets { pressing:{min:number;max:number;step:number}; style:{min:number;max:number;step:number}; tempo:{min:number;max:number;step:number}; }
+interface RecommendedResults { recPressing:number; recStyle:number; recTempo:number; recForwards:string; recMidfielders:string; recDefenders:string; recMarking:string; recOffside:boolean; }
+interface Strategy { formation:string; gamePlan:string; winProb?:number; winProbability?:number; explanation:string; pressing:number; style:number; tempo:number; lineInstructions?:{attack?:string;midfield?:string;defense?:string}; marking?:string; offsideTrap?:boolean; criticalConstraints?:string[]; }
 
-/* ── Base ────────────────────────────────────────────── */
-body {
-  font-family: "Inter","Changa",sans-serif;
-  background: var(--bg-dark)
-    url("https://i.ibb.co/tMSMxmwN/Gemini-Generated-Image-ticrt2ticrt2ticr.png")
-    center/cover no-repeat fixed;
-  color: var(--text-bright);
-  text-align: center;
-  min-height: 100vh;
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* ── Typography ──────────────────────────────────────── */
-h1 { font-size: 2.8em; margin: 0; text-shadow: 0 0 12px var(--osm-cyan); }
-h2 { font-size: 2em;   margin: 20px 0 10px; color: var(--osm-gold); }
-h3 { font-size: 1.6em; margin: 15px 0;      color: var(--osm-cyan); }
-h4 { font-size: 1.3em; margin: 20px 0 10px; color: var(--osm-gold); }
-
-/* ── Layout shells ───────────────────────────────────── */
-header {
-  padding: 40px 20px;
-  background: linear-gradient(180deg,var(--osm-navy),transparent);
-}
-main.glass {
-  padding: 30px 20px;
-  max-width: 1200px;
-  margin: 30px auto;
-  background: var(--glass);
-  border-radius: 12px;
-  box-shadow: 0 0 25px rgba(0,174,239,.35);
-}
-.card {
-  padding: 25px;
-  margin-bottom: 30px;
-  background: rgba(19,24,41,.6);
-  border: 1px solid rgba(0,174,239,.3);
-  border-radius: 10px;
-}
-
-/* ── Trust Bar ───────────────────────────────────────── */
-.trust-bar {
-  background: linear-gradient(90deg,#001a40 0%,#002c62 50%,#001a40 100%);
-  padding: 16px 20px;
-  border-top: 1px solid rgba(0,174,239,.3);
-  border-bottom: 1px solid rgba(0,174,239,.3);
-}
-.trust-bar-inner {
-  max-width: 1200px; margin: 0 auto;
-  display: flex; justify-content: center; align-items: center;
-  flex-wrap: wrap; gap: 24px;
+const FM: Record<string, FormationMeta> = {
+  "532":{t:0,d:5,cdm:false,cam:false,wm:false,wg:false,wb:true},
+  "631A":{t:0,d:6,cdm:false,cam:false,wm:false,wg:false,wb:false},
+  "541A":{t:0,d:5,cdm:false,cam:false,wm:true,wg:false,wb:true},
+  "541B":{t:0,d:5,cdm:true,cam:true,wm:false,wg:false,wb:false},
+  "5311":{t:0,d:5,cdm:false,cam:true,wm:false,wg:false,wb:true},
+  "442A":{t:1,d:4,cdm:false,cam:false,wm:true,wg:false,wb:false},
+  "442B":{t:1,d:4,cdm:true,cam:true,wm:false,wg:false,wb:false},
+  "451":{t:1,d:4,cdm:true,cam:false,wm:true,wg:false,wb:false},
+  "523A":{t:1,d:5,cdm:false,cam:true,wm:false,wg:true,wb:false},
+  "523B":{t:1,d:5,cdm:true,cam:true,wm:false,wg:false,wb:false},
+  "334A":{t:2,d:3,cdm:false,cam:true,wm:true,wg:true,wb:true},
+  "334B":{t:2,d:3,cdm:true,cam:false,wm:true,wg:true,wb:true},
+  "4231":{t:1,d:4,cdm:true,cam:true,wm:true,wg:false,wb:false},
+  "433A":{t:2,d:4,cdm:false,cam:true,wm:false,wg:true,wb:false},
+  "433B":{t:2,d:4,cdm:true,cam:false,wm:false,wg:true,wb:false},
+  "424":{t:2,d:4,cdm:false,cam:false,wm:false,wg:true,wb:false},
+  "343A":{t:2,d:3,cdm:false,cam:true,wm:true,wg:true,wb:true},
+  "343B":{t:2,d:3,cdm:true,cam:false,wm:true,wg:true,wb:true},
+  "3322":{t:2,d:3,cdm:false,cam:true,wm:false,wg:true,wb:false},
+};
+const STRENGTH_DELTA: Record<StrengthKey,number> = {"much-stronger":-12,stronger:-6,equal:0,weaker:6,"much-weaker":12};
+const BASE_PRESSING=[22,25,32] as const, BASE_STYLE=[25,48,62] as const, BASE_TEMPO=[32,50,60] as const;
+function clamp(v:number,lo:number,hi:number){return Math.max(lo,Math.min(hi,v));}
+function computeOppPreset(formation:string,strength:StrengthKey):OpponentPreset|null{
+  const m=FM[formation];if(!m)return null;
+  const delta=STRENGTH_DELTA[strength]??0,cdmPen=m.cdm?-4:0,def5Pen=m.d>=5?-14:0;
+  const pressing=clamp(BASE_PRESSING[m.t]+delta+cdmPen+def5Pen,10,88);
+  const style=clamp(BASE_STYLE[m.t]+delta+def5Pen,12,82);
+  const tempo=clamp(BASE_TEMPO[m.t]+Math.round(delta*.5),20,80);
+  return{pressing,style,tempo,
+    oppForwards:m.d>=5&&!m.wg?"Help defend":"Attack only",
+    oppMidfielders:m.d>=5?"Protect the defenders":m.cdm&&pressing<55?"Stay in position":pressing>=65?"Go forward":"Stay in position",
+    oppDefenders:m.d>=5?"Stay behind":m.wb&&delta>=0?"Move forward":"Stay behind",
+    marking:m.d>=5?"Man-to-Man":"zonal",offside:m.d<=4&&pressing>=50,
+    playStyle:m.t===0?"counter":m.cam?"passing":m.wm||m.wg?"wing":"passing"};
 }
 
-/* ── Hero ────────────────────────────────────────────── */
-.hero-section { background: #0c1120; padding: 50px 20px 40px; text-align: center; }
-.hero-title { font-size: 2.9em; color: #ffb400; margin: 0 0 18px; line-height: 1.1; }
-.hero-sub   { font-size: 1.35em; color: #fff; max-width: 640px; margin: 0 auto 40px; line-height: 1.4; }
-.hero-img   { max-width: 100%; height: auto; border-radius: 28px; box-shadow: 0 30px 70px rgba(0,174,239,.55); margin-bottom: 40px; }
-.hero-btns  { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; }
-.hero-btn-primary {
-  padding: 19px 42px; font-size: 1.4em;
-  background: linear-gradient(135deg,#ffb400,#ffa000);
-  color: #002c62; border: none; border-radius: 16px; font-weight: 800; cursor: pointer;
-}
-.hero-btn-outline {
-  padding: 19px 42px; font-size: 1.4em;
-  background: transparent; color: #00aeef;
-  border: 3px solid #00aeef; border-radius: 16px; font-weight: 800; cursor: pointer;
-}
-.hero-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,180,0,.5); }
-.hero-btn-outline:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,174,239,.4); }
+const DEFAULT_INPUTS: AdvancedInputs = {strengthLevel:"equal",oppForm:"",oppPlayStyle:"",oppMarking:"zonal",oppPressing:50,oppStyle:50,oppTempo:50,oppForwards:"Attack only",oppMidfielders:"Stay in position",oppDefenders:"Stay behind",oppOffside:false,venue:"home",pitchLv:"0",campInt:"0",secretTrain:0};
+const STYLE_SLIDER_PRESETS: Record<string,StyleBasedSliderPresets> = {
+  counter:{pressing:{min:10,max:60,step:5},style:{min:10,max:50,step:5},tempo:{min:10,max:50,step:5}},
+  passing:{pressing:{min:30,max:80,step:5},style:{min:40,max:80,step:5},tempo:{min:40,max:80,step:5}},
+  wing:{pressing:{min:40,max:90,step:5},style:{min:50,max:90,step:5},tempo:{min:50,max:90,step:5}},
+  long:{pressing:{min:20,max:70,step:5},style:{min:30,max:70,step:5},tempo:{min:30,max:70,step:5}},
+  shoot:{pressing:{min:50,max:100,step:5},style:{min:60,max:100,step:5},tempo:{min:60,max:100,step:5}},
+};
 
-/* ── Input grid ──────────────────────────────────────── */
-.input-grid {
-  display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr));
-  gap: 20px; margin: 20px 0; text-align: left;
+function FormationSelect({name,value,onChange,disabled=false}:{name:string;value:string;onChange:(e:React.ChangeEvent<HTMLSelectElement>)=>void;disabled?:boolean}){
+  return(<select name={name} value={value} onChange={onChange} disabled={disabled}>
+    <option value="">Select Formation</option>
+    <optgroup label="── Defensive ──"><option value="532">5-3-2</option><option value="631A">6-3-1 A</option><option value="541A">5-4-1 A</option><option value="541B">5-4-1 B (Diamond)</option><option value="5311">5-3-1-1</option></optgroup>
+    <optgroup label="── Balanced ──"><option value="442A">4-4-2 A (Flat)</option><option value="442B">4-4-2 B (Diamond)</option><option value="451">4-5-1</option><option value="523A">5-2-3 A</option><option value="523B">5-2-3 B</option><option value="4231">4-2-3-1</option></optgroup>
+    <optgroup label="── Attacking ──"><option value="334A">3-3-4 A</option><option value="334B">3-3-4 B</option><option value="433A">4-3-3 A</option><option value="433B">4-3-3 B</option><option value="343A">3-4-3 A</option><option value="343B">3-4-3 B</option><option value="3322">3-3-2-2</option><option value="424">4-2-4</option></optgroup>
+  </select>);
 }
-.input-group { display: flex; flex-direction: column; }
-.input-group label { font-size: 1rem; font-weight: 600; color: var(--osm-cyan); margin-bottom: 8px; }
-.input-group select, .input-group input[type="number"] {
-  width: 100%; padding: 10px; border-radius: 6px;
-  border: 1px solid var(--osm-cyan); background: var(--bg-panel);
-  color: var(--text-bright); font-size: 1rem; transition: all .3s;
+function StrengthSelect({name,value,onChange}:{name:string;value:string;onChange:(e:React.ChangeEvent<HTMLSelectElement>)=>void}){
+  return(<select name={name} value={value} onChange={onChange}>
+    <option value="much-stronger">My team is much stronger (10–20 pts)</option>
+    <option value="stronger">My team is stronger (5–10 pts)</option>
+    <option value="equal">Teams are roughly equal (0–5 pts)</option>
+    <option value="weaker">My team is weaker (5–10 pts)</option>
+    <option value="much-weaker">My team is much weaker (10–20 pts)</option>
+  </select>);
 }
-.input-group select:focus, .input-group input:focus {
-  outline: none; border-color: var(--osm-gold); box-shadow: 0 0 8px rgba(255,180,0,.4);
+function SliderField({id,label,description,value,onChange,disabled=false,highlight=false,stylePreset=null}:{id:string;label:string;description:string;value:number;onChange:(e:React.ChangeEvent<HTMLInputElement>)=>void;disabled?:boolean;highlight?:boolean;stylePreset?:StyleBasedSliderPresets|null}){
+  const min=stylePreset?(stylePreset[id as keyof StyleBasedSliderPresets]?.min??0):0;
+  const max=stylePreset?(stylePreset[id as keyof StyleBasedSliderPresets]?.max??100):100;
+  const step=stylePreset?(stylePreset[id as keyof StyleBasedSliderPresets]?.step??1):1;
+  return(<div className="slider-group"><label htmlFor={id}>{label}: <strong style={{color:highlight?"var(--osm-gold)":"var(--osm-cyan)"}}>{value}</strong></label><input type="range" id={id} min={min} max={max} step={step} value={value} onChange={onChange} disabled={disabled} aria-label={label}/><div className="slider-description">{description}</div></div>);
 }
-
-/* ── Opponent tactics block ──────────────────────────── */
-.opponent-tactics-section {
-  margin: 25px 0; padding: 20px;
-  background: rgba(0,174,239,.1); border-radius: 8px; border-left: 4px solid var(--osm-cyan);
-}
-.opponent-tactics-section h3 { margin-top: 0; font-size: 1.4em; }
-
-/* ── Sliders ─────────────────────────────────────────── */
-.slider-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap: 25px; margin: 20px 0; }
-.slider-group { background: rgba(0,174,239,.1); padding: 20px; border-radius: 8px; border: 1px solid rgba(0,174,239,.3); }
-.slider-group label { display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: 600; color: var(--osm-cyan); margin-bottom: 12px; }
-.slider-group label span { color: var(--osm-gold); font-size: 1.3rem; }
-.slider-group input[type="range"] {
-  width: 100%; height: 8px; border-radius: 5px;
-  background: linear-gradient(to right,var(--osm-navy),var(--osm-cyan),var(--osm-gold));
-  outline: none; -webkit-appearance: none; margin: 10px 0;
-}
-.slider-group input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
-  background: var(--osm-gold); cursor: pointer; box-shadow: 0 0 10px rgba(255,180,0,.6);
-}
-.slider-group input[type="range"]::-moz-range-thumb {
-  width: 20px; height: 20px; border-radius: 50%; background: var(--osm-gold);
-  cursor: pointer; box-shadow: 0 0 10px rgba(255,180,0,.6); border: none;
-}
-.slider-group input[type="range"]:disabled { opacity: .7; cursor: not-allowed; }
-.slider-description { font-size: .85rem; color: var(--text-dim); margin-top: 8px; font-style: italic; text-align: left; }
-
-/* ── Buttons (base) ──────────────────────────────────── */
-button {
-  background: linear-gradient(135deg,var(--osm-gold),#ffa000);
-  color: var(--osm-navy); border: none; padding: 14px 28px; border-radius: 8px;
-  font-weight: 700; font-size: 1.1rem; cursor: pointer; transition: all .3s;
-  box-shadow: 0 4px 15px rgba(255,180,0,.3);
-}
-button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,180,0,.5); }
-button:active { transform: translateY(0); }
-
-/* ── Lifetime button — green ─────────────────────────── */
-.btn-lifetime-green {
-  padding: 10px 14px; border-radius: 8px;
-  background: linear-gradient(135deg,#00c864,#00a050) !important;
-  color: #fff !important; border: none; font-weight: bold;
-  cursor: pointer; font-size: 0.9em;
-  box-shadow: 0 4px 16px rgba(0,200,100,.4) !important;
-}
-.btn-lifetime-green:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(0,200,100,.6) !important; }
-
-/* ── Subscribe box ───────────────────────────────────── */
-.subscribe-box {
-  margin-top: 30px; border-radius: 18px;
-  overflow: hidden; border: 2px solid #00b4ff;
-  box-shadow: 0 8px 40px rgba(0,150,255,.5);
-}
-.subscribe-box-header {
-  background: linear-gradient(135deg,#0050cc 0%,#0096ff 50%,#00c8ff 100%);
-  padding: 32px 24px 0;
-  display: flex; flex-direction: column; align-items: center;
-}
-.subscribe-box-title { color:#fff; margin:0 0 6px; font-size:1.5em; font-weight:800; text-shadow:0 2px 8px rgba(0,0,0,.3); }
-.subscribe-box-sub   { color:rgba(255,255,255,.85); margin:0 0 20px; font-size:.97em; line-height:1.5; }
-.subscribe-box-img   {
-  width:160px; height:160px; object-fit:contain; display:block;
-  margin-bottom:-30px; filter:drop-shadow(0 8px 20px rgba(0,0,0,.35));
-  position:relative; z-index:2;
-}
-.subscribe-box-body {
-  background: linear-gradient(160deg,#062554 0%,#0a3a7a 100%);
-  padding: 48px 24px 28px;
-  display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;
-}
-.subscribe-col {
-  flex: 1 1 300px; max-width: 400px;
-  background: rgba(0,0,0,.25); border-radius: 14px;
-  padding: 22px 20px; border: 1px solid rgba(0,180,255,.3);
-}
-.sub-input {
-  padding: 12px 16px; border-radius: 10px;
-  border: 1.5px solid rgba(0,174,239,.5);
-  background: rgba(0,0,0,.4); color: #fff; font-size: .97em; outline: none; width: 100%;
-}
-.sub-btn-gold {
-  padding: 13px 20px; border-radius: 10px;
-  background: linear-gradient(135deg,#ffb400,#ffa000);
-  color: #002c62; border: none; font-weight: bold; font-size: 1em; cursor: pointer;
-  box-shadow: 0 4px 16px rgba(255,180,0,.35); width: 100%;
-}
-.sub-btn-green {
-  padding: 13px 20px; border-radius: 10px;
-  background: linear-gradient(135deg,#00c864,#00a050);
-  color: #fff; border: none; font-weight: bold; font-size: 1em; cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0,200,100,.3); width: 100%;
-}
-.referral-link-btn {
-  padding: 10px 22px; border-radius: 10px;
-  background: rgba(255,255,255,.07); color: rgba(160,200,255,.7);
-  border: 1px solid rgba(255,255,255,.15); font-weight: 600; cursor: pointer; font-size: .9em; transition: all .25s;
-}
-.referral-link-btn.copied { background: rgba(0,200,100,.25); color: #00c864; border-color: #00c864; }
-
-/* ── Results ─────────────────────────────────────────── */
-#engineResults { animation: slideIn .5s ease-out; }
-@keyframes slideIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-@keyframes fadeIn  { from{opacity:0} to{opacity:1} }
-#quickResult {
-  background: rgba(0,174,239,.15); padding: 20px; margin-top: 20px;
-  border-radius: 8px; border-left: 4px solid var(--osm-cyan);
-  font-size: 1.1rem; line-height: 1.8;
-}
-#engineResults table { width:100%; border-collapse:collapse; margin:15px 0; background:rgba(0,0,0,.3); }
-#engineResults th, #engineResults td { padding:12px; border:1px solid rgba(0,174,239,.3); text-align:left; }
-#engineResults th { background:var(--osm-navy); color:var(--osm-gold); font-weight:700; }
-#engineResults tr:nth-child(even) { background:rgba(0,174,239,.05); }
-#engineResults tr:hover { background:rgba(0,174,239,.15); }
-
-/* ── Alternative formations ──────────────────────────── */
-.alternative-formations-container { margin:25px 0; padding:20px; background:rgba(0,174,239,.1); border-radius:8px; border:1px solid rgba(0,174,239,.3); }
-.alternative-formations-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:15px; margin:20px 0; }
-.alternative-formation-card { background:rgba(0,174,239,.1); padding:15px; border-radius:8px; border:2px solid rgba(0,174,239,.3); cursor:pointer; transition:all .3s; text-align:center; }
-.alternative-formation-card:hover { border-color:var(--osm-cyan); transform:translateY(-3px); box-shadow:0 5px 15px rgba(0,174,239,.3); }
-.alternative-formation-card.selected { background:rgba(0,174,239,.25); border-color:var(--osm-cyan); box-shadow:0 0 15px rgba(0,174,239,.5); }
-.alternative-formation-card .formation-name   { font-size:1.8em; font-weight:700; color:var(--osm-gold); margin-bottom:8px; }
-.alternative-formation-card .formation-type   { color:var(--osm-cyan); font-weight:600; font-size:.95em; margin-bottom:6px; }
-.alternative-formation-card .formation-strengths { color:var(--text-dim); font-size:.85em; margin-bottom:8px; line-height:1.4; }
-.alternative-formation-card .win-prob         { color:var(--success); font-weight:600; font-size:1em; }
-
-/* ═══════════════════════════════════════════════════════
-   PRICING — 4-column grid
-═══════════════════════════════════════════════════════ */
-#pricing { background: rgba(19,24,41,.8); }
-.pricing-grid {
-  display: grid; grid-template-columns: repeat(4,1fr);
-  gap: 20px; margin-top: 30px; align-items: stretch;
+function FormationTypeBadge({formation}:{formation:string}){
+  const m=FM[formation];if(!m)return null;
+  const labels:Record<FormationType,string>={0:"🛡 Defensive",1:"⚖️ Balanced",2:"⚔️ Attacking"};
+  const colors:Record<FormationType,string>={0:"rgba(0,200,130,.2)",1:"rgba(0,174,239,.2)",2:"rgba(255,80,80,.2)"};
+  const borders:Record<FormationType,string>={0:"rgba(0,200,130,.5)",1:"rgba(0,174,239,.5)",2:"rgba(255,80,80,.5)"};
+  return(<span style={{display:"inline-flex",alignItems:"center",padding:"2px 10px",borderRadius:20,fontSize:"0.78em",fontWeight:600,background:colors[m.t],border:`1px solid ${borders[m.t]}`,color:"var(--text-bright)",marginLeft:10,verticalAlign:"middle"}}>{labels[m.t]}</span>);
 }
 
-/* Base card */
-.product-card {
-  background: linear-gradient(145deg,var(--bg-panel),#1a2438);
-  border: 1px solid var(--osm-cyan); border-radius: 12px;
-  padding: 36px 18px 24px; position: relative; transition: all .3s;
-  display: flex; flex-direction: column; align-items: stretch;
+function usePWAInstall(){
+  const[deferredPrompt,setDeferredPrompt]=useState<any>(null);
+  const[canInstall,setCanInstall]=useState(false);
+  useEffect(()=>{const h=(e:Event)=>{e.preventDefault();setDeferredPrompt(e);setCanInstall(true);};window.addEventListener("beforeinstallprompt",h);return()=>window.removeEventListener("beforeinstallprompt",h);},[]);
+  const promptInstall=useCallback(async()=>{if(!deferredPrompt)return false;deferredPrompt.prompt();const{outcome}=await deferredPrompt.userChoice;setDeferredPrompt(null);setCanInstall(false);return outcome==="accepted";},[deferredPrompt]);
+  return{canInstall,promptInstall};
 }
-.product-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,174,239,.4); }
-
-/* ── Epic card — electric blue filled ───────────────── */
-.product-card.epic-featured {
-  background: linear-gradient(145deg,#001e5a 0%,#003399 50%,#0055cc 100%);
-  border: 2px solid #3399ff;
-  box-shadow: 0 0 24px rgba(0,120,255,.45), inset 0 0 40px rgba(0,80,200,.2);
+function useOnlineStatus(){
+  const[isOnline,setIsOnline]=useState(navigator.onLine);
+  useEffect(()=>{const on=()=>setIsOnline(true),off=()=>setIsOnline(false);window.addEventListener("online",on);window.addEventListener("offline",off);return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};},[]);
+  return isOnline;
 }
-.product-card.epic-featured:hover { box-shadow: 0 12px 36px rgba(0,120,255,.7); }
-.product-card.epic-featured h3 { color: #66ccff; }
-.product-card.epic-featured .price { color: #ffe066; }
-.product-card.epic-featured .benefit-list li { color: #cceeff; }
-.product-card.epic-featured .benefit-list li::before { color: #66ccff; }
-
-/* ── Elite card — royal purple filled ───────────────── */
-.product-card.elite {
-  background: linear-gradient(145deg,#1a0044 0%,#33006e 50%,#550099 100%);
-  border: 2px solid #9933ff;
-  box-shadow: 0 0 24px rgba(130,0,255,.45), inset 0 0 40px rgba(80,0,180,.2);
-}
-.product-card.elite:hover { box-shadow: 0 12px 36px rgba(130,0,255,.7); }
-.product-card.elite h3 { color: #cc88ff; }
-.product-card.elite .price { color: #ffe066; }
-.product-card.elite .benefit-list li { color: #e8ccff; }
-.product-card.elite .benefit-list li::before { color: #cc88ff; }
-
-/* ── Legendary card — amber/orange filled ───────────── */
-.product-card.legendary {
-  background: linear-gradient(145deg,#3a1a00 0%,#6b3300 50%,#a05000 100%);
-  border: 2px solid var(--osm-gold);
-  box-shadow: 0 0 28px rgba(255,140,0,.5), inset 0 0 40px rgba(180,80,0,.2);
-}
-.product-card.legendary:hover { box-shadow: 0 12px 36px rgba(255,140,0,.75); }
-.product-card.legendary h3 { color: #ffd066; }
-.product-card.legendary .price { color: #ffe599; }
-.product-card.legendary .benefit-list li { color: #ffe8c0; }
-.product-card.legendary .benefit-list li::before { color: #ffcc44; }
-
-/* product card internals */
-.pc-img-wrap {
-  width: 100%; height: 150px;
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 12px; overflow: hidden; border-radius: 8px; flex-shrink: 0;
-}
-.pc-img-wrap.legendary-image-wrap { position: relative; }
-.product-image { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
-.legendary-hero-img { width:100%; height:100%; object-fit:cover; }
-.legendary-img-badge {
-  position:absolute; bottom:6px; left:50%; transform:translateX(-50%);
-  background:rgba(0,0,0,.65); color:var(--osm-gold);
-  font-size:.72em; font-weight:700; padding:3px 10px; border-radius:12px;
-  white-space:nowrap; pointer-events:none;
-}
-.product-card h3 {
-  font-size: 1.6em; margin: 8px 0; min-height: 2em;
-  display: flex; align-items: center; justify-content: center; color: var(--osm-cyan);
-}
-.price {
-  font-size: 2em; margin: 10px 0; color: var(--osm-gold); font-weight: 700;
-  display: flex; align-items: baseline; justify-content: center;
-}
-.benefit-list { font-size: .88em; text-align: left; padding-left: 0; list-style: none; margin: 14px 0; flex: 1; }
-.benefit-list li { margin: 8px 0; padding-left: 22px; position: relative; line-height: 1.45; }
-.benefit-list li::before { content:"✓"; color:var(--osm-gold); font-weight:bold; position:absolute; left:0; font-size:1.2em; }
-
-.tag.legend {
-  position:absolute; top:-12px; left:50%; transform:translateX(-50%);
-  background:var(--osm-gold); color:var(--osm-navy);
-  padding:5px 14px; border-radius:20px; font-size:.78em; font-weight:700;
-  box-shadow:0 3px 10px rgba(255,180,0,.5); white-space:nowrap;
-}
-.tag.featured {
-  position:absolute; top:-12px; left:50%; transform:translateX(-50%);
-  background:linear-gradient(135deg,var(--osm-cyan),#0099cc); color:#fff;
-  padding:5px 14px; border-radius:20px; font-size:.78em; font-weight:700;
-  box-shadow:0 3px 10px rgba(0,174,239,.5); white-space:nowrap;
+function useStripeCallbackParams(){
+  const[subscribed,setSubscribed]=useState(false);
+  const[checkoutCancelled,setCheckoutCancelled]=useState(false);
+  useEffect(()=>{const p=new URLSearchParams(window.location.search);if(p.get("subscribed")==="true")setSubscribed(true);if(p.get("checkout")==="cancelled")setCheckoutCancelled(true);if(p.has("subscribed")||p.has("checkout"))window.history.replaceState({},"",window.location.pathname);},[]);
+  return{subscribed,checkoutCancelled,dismissSubscribed:()=>setSubscribed(false),dismissCheckoutCancelled:()=>setCheckoutCancelled(false)};
 }
 
-/* ═══════════════════════════════════════════════════════
-   POPUP / MODAL SYSTEM  (consistent across all modals)
-═══════════════════════════════════════════════════════ */
-.popup-overlay {
-  position: fixed; top:0; left:0; right:0; bottom:0;
-  background: rgba(0,0,0,.87);
-  display: none; justify-content: center; align-items: center;
-  z-index: 10000; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  padding: 16px; overflow-y: auto;
-}
-.subscription-popup {
-  background: linear-gradient(135deg,var(--bg-panel),#1a2438);
-  width: 90%; max-width: 500px; border-radius: 15px; overflow: hidden;
-  border: 3px solid var(--osm-cyan); box-shadow: 0 20px 50px rgba(0,174,239,.4);
-  animation: popupSlideIn .4s cubic-bezier(.22,1,.36,1);
-  position: relative; max-height: 95vh; overflow-y: auto;
-}
-.subscription-popup.install-popup { max-width: 540px; }
-.subscription-popup.refer-popup   { max-width: 520px; }
+function App(){
+  const[strategy,setStrategy]=useState<null|Strategy>(null);
+  const[results,setResults]=useState<null|RecommendedResults>(null);
+  const[error,setError]=useState("");
+  const[loading,setLoading]=useState(false);
+  const[advUsesLeft,setAdvUsesLeft]=useState(1);
+  const[checkoutTier,setCheckoutTier]=useState<null|TierKey>(null);
+  const[showExitIntentPopup,setShowExitIntentPopup]=useState(false);
+  const[user,setUser]=useState<any>(null);
+  const[authLoading,setAuthLoading]=useState(true);
+  const[showPWALoginModal,setShowPWALoginModal]=useState(false);
+  const[showBanner,setShowBanner]=useState(true);
+  const[isSubscribed,setIsSubscribed]=useState(false);
+  const[referralCopied,setReferralCopied]=useState(false);
+  const[showGoldenTicket,setShowGoldenTicket]=useState(false);
+  const[showReferModal,setShowReferModal]=useState(false);
+  const[showInstallModal,setShowInstallModal]=useState(false);
+  const[inputs,setInputs]=useState<AdvancedInputs>(DEFAULT_INPUTS);
+  const[freeInputs,setFreeInputs]=useState({oppFormQuick:"",strengthQuick:"equal"});
+  const[strategies,setStrategies]=useState<Strategy[]>([]);
+  const[presetApplied,setPresetApplied]=useState(false);
+  const[presetFormationLabel,setPresetFormationLabel]=useState("");
+  const[advCountdown,setAdvCountdown]=useState("");
+  const[advCooldownEnd,setAdvCooldownEnd]=useState<number|null>(null);
 
-@keyframes popupSlideIn {
-  from{opacity:0;transform:translateY(40px) scale(.94)}
-  to  {opacity:1;transform:translateY(0) scale(1)}
-}
-.popup-header {
-  background: linear-gradient(90deg,var(--osm-navy),var(--osm-cyan));
-  padding: 22px 25px; text-align: center;
-  position: sticky; top: 0; z-index: 1;
-}
-.popup-header h3 { color:var(--text-bright); font-size:1.7em; margin:0; text-shadow:0 0 10px rgba(0,0,0,.5); }
-.popup-content { padding: 24px 28px; text-align: center; }
-.popup-icon { font-size:3.5em; margin-bottom:12px; color:var(--osm-gold); text-shadow:0 0 20px rgba(255,180,0,.5); line-height:1; }
-.popup-text { font-size:1.05em; line-height:1.65; margin-bottom:18px; color:var(--text-dim); }
-.popup-features { text-align:left; margin:0 0 18px; padding-left:0; list-style:none; }
-.popup-features li { margin:9px 0; color:var(--text-bright); position:relative; padding-left:28px; line-height:1.5; }
-.popup-features li::before { content:"✓"; color:var(--osm-gold); position:absolute; left:0; font-weight:bold; font-size:1.15em; }
-.popup-actions { display:flex; gap:12px; margin-top:10px; }
-.popup-btn { flex:1; padding:13px; border-radius:8px; font-weight:700; font-size:.97rem; cursor:pointer; transition:all .25s; border:none; }
-.popup-btn.primary { background:linear-gradient(135deg,var(--osm-gold),#ffa000); color:var(--osm-navy); }
-.popup-btn.primary:hover  { transform:translateY(-2px); box-shadow:0 6px 20px rgba(255,180,0,.5); }
-.popup-btn.secondary { background:transparent; color:var(--osm-cyan); border:2px solid var(--osm-cyan); }
-.popup-btn.secondary:hover { background:rgba(0,174,239,.1); transform:translateY(-2px); }
-.popup-close {
-  position:absolute; top:12px; right:12px;
-  background:rgba(0,0,0,.55); border:none; color:var(--text-bright);
-  width:32px; height:32px; border-radius:50%; cursor:pointer;
-  font-size:20px; display:flex; align-items:center; justify-content:center;
-  transition:all .25s; z-index:2;
-}
-.popup-close:hover { background:rgba(255,0,0,.75); transform:rotate(90deg); }
+  const{canInstall,promptInstall}=usePWAInstall();
+  const isOnline=useOnlineStatus();
+  const{subscribed,checkoutCancelled,dismissSubscribed,dismissCheckoutCancelled}=useStripeCallbackParams();
+  const lastPresetKeyRef=useRef("");
 
-/* Install popup image */
-.install-popup-img-wrap {
-  width:100%; max-height:200px; overflow:hidden;
-  display:flex; align-items:center; justify-content:center;
-  background:linear-gradient(135deg,rgba(0,44,98,.7),rgba(0,174,239,.25));
-}
-.install-popup-img { width:100%; max-height:200px; object-fit:cover; object-position:center top; display:block; }
-.install-tip-box {
-  padding:11px 15px; background:rgba(0,174,239,.12); border-radius:10px;
-  border:1px solid rgba(0,174,239,.35); font-size:.86em; color:var(--text-dim);
-  line-height:1.6; margin-bottom:16px; text-align:left;
-}
+  useEffect(()=>{if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").then(r=>console.log("Service Worker registered:",r)).catch(e=>console.warn("SW registration failed:",e));},[]);
 
-/* Referral popup image */
-.refer-img-wrap {
-  width:100%; max-height:220px; overflow:hidden;
-  display:flex; align-items:center; justify-content:center;
-  background:linear-gradient(135deg,rgba(0,20,60,.8),rgba(0,80,160,.4));
-}
-.refer-popup-img {
-  width:100%; max-height:220px;
-  object-fit:contain; object-position:center;
-  display:block; padding:8px;
-}
+  const handleEmailSubscription=():void=>{const el=document.getElementById("subscribeEmail") as HTMLInputElement|null;if(!el?.value?.trim()){setError("Please enter your email address.");return;}setShowGoldenTicket(true);};
+  const handleGoldenTicketSubmit=(_email:string):void=>{const el=document.getElementById("subscribeEmail") as HTMLInputElement|null;if(el)el.value="";if(!isSubscribed){try{localStorage.setItem("osm_subscribed","1");}catch{}setIsSubscribed(true);setAdvUsesLeft(p=>p+1);}};
+  const scrollToSubscribe=():void=>{const el=document.getElementById("subscribeEmail");if(el){el.scrollIntoView({behavior:"smooth",block:"center"});setTimeout(()=>el.focus(),400);}};
+  const handleCopyReferral=()=>{const link=`${PROD_URL}?ref=${user?.id??"guest"}`;navigator.clipboard.writeText(link).then(()=>{setReferralCopied(true);setTimeout(()=>setReferralCopied(false),2500);}).catch(()=>setError("Could not copy — please copy the link manually."));};
 
-/* Referral link copy row inside popup */
-.refer-link-box {
-  background:rgba(0,174,239,.1); border:1px solid rgba(0,174,239,.35);
-  border-radius:10px; padding:12px 14px; margin-bottom:16px; text-align:left;
-}
-.refer-link-label { display:block; font-size:.82em; color:var(--text-dim); margin-bottom:8px; font-weight:600; }
-.refer-link-row   { display:flex; gap:8px; align-items:center; }
-.refer-link-input {
-  flex:1; padding:8px 12px; border-radius:8px;
-  border:1px solid rgba(0,174,239,.4); background:rgba(0,0,0,.35);
-  color:var(--text-dim); font-size:.85em; outline:none;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-}
-.refer-copy-btn {
-  padding:8px 16px; border-radius:8px; font-size:.85em; font-weight:700;
-  background:linear-gradient(135deg,var(--osm-cyan),#0088cc);
-  color:#fff; border:none; cursor:pointer; white-space:nowrap;
-  transition:all .25s; box-shadow:0 3px 10px rgba(0,174,239,.35);
-}
-.refer-copy-btn.copied { background:linear-gradient(135deg,#00c864,#00a050); box-shadow:0 3px 10px rgba(0,200,100,.35); }
-.refer-copy-btn:hover  { transform:translateY(-1px); }
+  useEffect(()=>{
+    if(user)return;
+    try{if(sessionStorage.getItem("exitIntentShown")==="true")return;if(localStorage.getItem("exitIntentEmailSubmitted")==="true")return;}catch{return;}
+    const id=setTimeout(()=>{const h=(e:MouseEvent)=>{try{if(e.clientY<=10&&!sessionStorage.getItem("exitIntentShown")){sessionStorage.setItem("exitIntentShown","true");setShowExitIntentPopup(true);}}catch{}};document.addEventListener("mouseleave",h);return()=>document.removeEventListener("mouseleave",h);},3000);
+    return()=>clearTimeout(id);
+  },[user]);
 
-/* ── Offline toast ───────────────────────────────────── */
-.offline-message {
-  position:fixed; top:20px; left:50%; transform:translateX(-50%);
-  background:var(--warning); color:#fff; padding:10px 20px; border-radius:5px; z-index:1001; display:none;
+  useEffect(()=>{const h=(e:Event)=>setCheckoutTier((e as CustomEvent<TierKey>).detail);window.addEventListener("checkout-tier-change",h);return()=>window.removeEventListener("checkout-tier-change",h);},[]);
+
+  useEffect(()=>{
+    let mounted=true;
+    supabase.auth.getSession().then(({data:{session}})=>{if(!mounted)return;const u=session?.user??null;setUser(u);setAuthLoading(false);const isPWA=window.matchMedia("(display-mode: standalone)").matches||(navigator as any).standalone;if(!u&&isPWA)setShowPWALoginModal(true);});
+    const{data:{subscription:authSub}}=supabase.auth.onAuthStateChange((_ev,session)=>{if(!mounted)return;const u=session?.user??null;setUser(u);setAuthLoading(false);if(u)setShowPWALoginModal(false);});
+    return()=>{mounted=false;authSub?.unsubscribe();};
+  },[]);
+
+  const handleGoogleLogin=async()=>{setError("");const{error:e}=await supabase.auth.signInWithOAuth({provider:"google",options:{redirectTo:AUTH_REDIRECT_URL}});if(e)setError(e.message);};
+  const handleDiscordLogin=async()=>{setError("");const{error:e}=await supabase.auth.signInWithOAuth({provider:"discord",options:{redirectTo:AUTH_REDIRECT_URL}});if(e)setError(e.message);};
+  const handleLogout=async()=>{setError("");const{error:e}=await supabase.auth.signOut();if(e){setError(e.message);return;}setUser(null);};
+
+  const handleFreeChange=(e:React.ChangeEvent<HTMLSelectElement|HTMLInputElement>)=>setFreeInputs(p=>({...p,[e.target.name]:e.target.value}));
+  const handleChange=(e:React.ChangeEvent<HTMLSelectElement|HTMLInputElement|HTMLTextAreaElement>)=>{
+    const{name,value,type}=e.target;const checked=type==="checkbox"?(e.target as HTMLInputElement).checked:undefined;
+    const next:any={...inputs,[name]:type==="checkbox"?checked:value};
+    if(name==="oppPlayStyle"&&value){const p=STYLE_SLIDER_PRESETS[value];if(p){if(next.oppPressing<p.pressing.min)next.oppPressing=p.pressing.min;if(next.oppPressing>p.pressing.max)next.oppPressing=p.pressing.max;if(next.oppStyle<p.style.min)next.oppStyle=p.style.min;if(next.oppStyle>p.style.max)next.oppStyle=p.style.max;if(next.oppTempo<p.tempo.min)next.oppTempo=p.tempo.min;if(next.oppTempo>p.tempo.max)next.oppTempo=p.tempo.max;}}
+    setInputs(next);
+  };
+  const handleSlider=(e:React.ChangeEvent<HTMLInputElement>)=>setInputs(p=>({...p,[e.target.id]:Number(e.target.value)}));
+  const applyStrategyToResults=(s:Strategy):void=>{setStrategy(s);setResults({recPressing:s.pressing??50,recStyle:s.style??50,recTempo:s.tempo??50,recForwards:s.lineInstructions?.attack??"Attack only",recMidfielders:s.lineInstructions?.midfield??"Stay in position",recDefenders:s.lineInstructions?.defense??"Stay behind",recMarking:s.marking??"zonal",recOffside:s.offsideTrap??false});};
+
+  useEffect(()=>{let subbed=false;try{subbed=localStorage.getItem("osm_subscribed")==="1";}catch{}setIsSubscribed(subbed);const maxUses=subbed?2:1;try{const stored=localStorage.getItem("osm_adv_cooldown");if(stored){const{usesLeft,resetAt}=JSON.parse(stored);if(Date.now()<resetAt){setAdvUsesLeft(usesLeft);setAdvCooldownEnd(resetAt);}else{setAdvUsesLeft(maxUses);localStorage.removeItem("osm_adv_cooldown");}}else{setAdvUsesLeft(maxUses);}}catch{setAdvUsesLeft(maxUses);};},[]);
+
+  useEffect(()=>{if(!advCooldownEnd){setAdvCountdown("");return;}const tick=()=>{const r=advCooldownEnd-Date.now();if(r<=0){let s=false;try{s=localStorage.getItem("osm_subscribed")==="1";}catch{}setAdvUsesLeft(s?2:1);setAdvCooldownEnd(null);setAdvCountdown("");try{localStorage.removeItem("osm_adv_cooldown");}catch{}return;}const d=Math.floor(r/86_400_000),h=Math.floor((r%86_400_000)/3_600_000),m=Math.floor((r%3_600_000)/60_000),s=Math.floor((r%60_000)/1_000);setAdvCountdown(d>0?`${d}d ${h}h ${m}m ${s}s`:h>0?`${h}h ${m}m ${s}s`:`${m}m ${s}s`);};tick();const id=setInterval(tick,1000);return()=>clearInterval(id);},[advCooldownEnd]);
+
+  const handleFreeCalc=async():Promise<void>=>{if(!freeInputs.oppFormQuick){setError("Please select opponent formation.");return;}setLoading(true);setError("");setStrategy(null);setStrategies([]);try{const res=await fetch(EDGE_URL,{method:"POST",headers:AUTH_HEADERS,body:JSON.stringify({formation:freeInputs.oppFormQuick,strength:freeInputs.strengthQuick,userId:user?.id,isFreeCalculation:true})});if(!res.ok)throw new Error(`Server error ${res.status}`);const result=await res.json();if(!result.success)throw new Error(result.error||"Calculation failed.");applyStrategyToResults(result.strategy);document.getElementById("quickResult")?.scrollIntoView({behavior:"smooth"});}catch(err:any){setError(err?.message||"Service temporarily unavailable.");}finally{setLoading(false);}};
+
+  const generateCounterStrategy=async():Promise<void>=>{if(!inputs.oppForm||!inputs.strengthLevel){setError("Please select opponent formation and strength level.");return;}if(advUsesLeft<=0){setError(`Weekly limit reached — resets in ${advCountdown}.`);return;}setLoading(true);setError("");setStrategy(null);setStrategies([]);try{const res=await fetch(EDGE_URL,{method:"POST",headers:AUTH_HEADERS,body:JSON.stringify({formation:inputs.oppForm,strength:inputs.strengthLevel,oppPlayStyle:inputs.oppPlayStyle||"passing",oppMarking:inputs.oppMarking,myPressing:inputs.oppPressing,myStyle:inputs.oppStyle,myTempo:inputs.oppTempo,myForwards:inputs.oppForwards,myMidfielders:inputs.oppMidfielders,myDefenders:inputs.oppDefenders,myMarking:inputs.oppMarking,venue:inputs.venue,pitchLevel:parseInt(inputs.pitchLv,10),campIntensity:parseInt(inputs.campInt,10),secretTraining:inputs.secretTrain,userId:user?.id,isAdvancedCalculation:true})});if(!res.ok)throw new Error(`Server error ${res.status}`);const result=await res.json();if(!result.success)throw new Error(result.error||"Calculation failed.");const primary:Strategy=result.strategy,all:Strategy[]=result.strategies??[primary];applyStrategyToResults(primary);setStrategies(all);const newLeft=advUsesLeft-1;setAdvUsesLeft(newLeft);const resetAt=Date.now()+7*24*60*60*1000;try{localStorage.setItem("osm_adv_cooldown",JSON.stringify({usesLeft:newLeft,resetAt}));}catch{}if(newLeft<=0)setAdvCooldownEnd(resetAt);document.getElementById("engineResults")?.scrollIntoView({behavior:"smooth"});}catch(err:any){setError(err?.message||"Service temporarily unavailable.");}finally{setLoading(false);}};
+
+  const applyPreset=useCallback((form:string,strength:StrengthKey):void=>{if(!form)return;const key=`${form}::${strength}`;if(lastPresetKeyRef.current===key)return;lastPresetKeyRef.current=key;const p=computeOppPreset(form,strength);if(!p)return;setInputs(prev=>({...prev,oppPressing:p.pressing,oppStyle:p.style,oppTempo:p.tempo,oppForwards:p.oppForwards,oppMidfielders:p.oppMidfielders,oppDefenders:p.oppDefenders,oppMarking:p.marking,oppOffside:p.offside,oppPlayStyle:prev.oppPlayStyle||p.playStyle}));setPresetApplied(true);setPresetFormationLabel(form);},[]);
+  useEffect(()=>{if(inputs.oppForm)applyPreset(inputs.oppForm,inputs.strengthLevel);},[inputs.oppForm,inputs.strengthLevel,applyPreset]);
+
+  return(
+    <>
+      {!isOnline&&<div className="offline-message" style={{display:"block"}} role="alert">⚠️ You are offline — some features may be unavailable</div>}
+
+      {/* PWA Login */}
+      {showPWALoginModal&&(
+        <div className="pwa-login-overlay" role="dialog" aria-modal="true">
+          <div className="pwa-login-modal">
+            <img src="/icon-192.png" alt="OSM Counter NG" className="pwa-login-logo" width={96} height={96}/>
+            <h2 className="pwa-login-title">OSM Counter NG</h2>
+            <p className="pwa-login-subtitle">Sign in to unlock unlimited tactical analysis</p>
+            <button className="pwa-google-btn" onClick={handleGoogleLogin}>🔵&nbsp;&nbsp;Continue with Google</button>
+            <button className="pwa-discord-btn" onClick={handleDiscordLogin}>🟣&nbsp;&nbsp;Continue with Discord</button>
+            <button className="pwa-skip-btn" onClick={()=>setShowPWALoginModal(false)}>Continue as Guest</button>
+            <p className="pwa-login-note">Free tier · 2 counter strategies / week</p>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <header style={{padding:"20px 20px 10px",background:"linear-gradient(180deg,#001a40,transparent)",position:"relative",zIndex:10}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",maxWidth:"1200px",margin:"0 auto"}}>
+          <h1 style={{fontSize:"2.4em",margin:0}}>🎯 OSM Counter NG</h1>
+          {authLoading?(<span style={{color:"var(--text-dim)",fontSize:"0.9em"}}>Loading…</span>):user?(
+            <div style={{display:"flex",alignItems:"center",gap:15}}>
+              <span style={{fontSize:"0.95em",color:"#fff"}}>👤 {user.user_metadata?.full_name??user.email}</span>
+              <button onClick={handleLogout} style={{padding:"8px 16px",background:"rgba(255,0,0,0.7)",color:"#fff",border:"none",borderRadius:6,cursor:"pointer"}}>Sign Out</button>
+            </div>
+          ):(
+            <button onClick={handleGoogleLogin} style={{padding:"10px 25px",background:"linear-gradient(135deg,#ffb400,#ffa000)",color:"#002c62",border:"none",borderRadius:8,fontWeight:"bold",cursor:"pointer"}}>🔐 Sign In</button>
+          )}
+        </div>
+      </header>
+
+      {/* Banner */}
+      {showBanner&&(
+        <section id="banner" style={{position:"relative",maxWidth:"1200px",margin:"10px auto 0",padding:"0 20px"}}>
+          <img src="https://z-cdn-media.chatglm.cn/files/99db47b1-d36a-4e40-b49c-47e722efce76.png?auth_key=1868379298-2944d7abcb444f6d9e4be31fa6403e10-0-6b1078c70b29374bd1d019b7300a5069" alt="OSM Counter NG Banner" style={{width:"100%",borderRadius:"12px",boxShadow:"0 10px 30px rgba(0,0,0,0.6)",display:"block"}}/>
+          <button onClick={()=>setShowBanner(false)} aria-label="Close banner" style={{position:"absolute",top:"12px",right:"30px",background:"rgba(0,0,0,0.8)",border:"none",color:"#fff",fontSize:"28px",width:"36px",height:"36px",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>×</button>
+        </section>
+      )}
+
+      {/* Trust Bar */}
+      <section className="trust-bar">
+        <div className="trust-bar-inner">
+          {[{emoji:"🏆",strong:"12,847+",text:" Matches Won"},{emoji:"⭐",strong:"4.9/5",text:" User Rating"},{emoji:"🎯",strong:"89%",text:" Win Rate"},{emoji:"🔒",strong:"",text:"Secure & Private"}].map(({emoji,strong,text})=>(
+            <div key={text} style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:"1.5em"}}>{emoji}</span>
+              <span style={{color:"var(--text-bright)",fontSize:"0.95em"}}>{strong&&<strong style={{color:"var(--osm-gold)"}}>{strong}</strong>}{text}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Hero */}
+      <section className="hero-section">
+        <div style={{maxWidth:"1200px",margin:"0 auto"}}>
+          <h2 className="hero-title">Win Every Match with AI</h2>
+          <p className="hero-sub">The secret weapon only top OSM players use.<br/>Install as real app</p>
+          <img src="https://i.ibb.co/VYy61X8s/VYy61X8s.jpg" alt="OSM Counter NG on iPhone" className="hero-img"/>
+          <div className="hero-btns">
+            <button className="hero-btn-primary" onClick={()=>document.getElementById("freeTier")?.scrollIntoView({behavior:"smooth"})}>🚀 Try Free Counter Now</button>
+            <button className="hero-btn-outline" onClick={()=>setShowInstallModal(true)}>📲 Install on Phone (2 sec)</button>
+          </div>
+        </div>
+      </section>
+
+      <main className="glass">
+
+        {/* Free Tier */}
+        <section id="freeTier" className="card">
+          <h2>⚡ Quick Counter</h2>
+          <p style={{color:"var(--text-dim)",marginBottom:20}}>Select opponent formation and get an instant counter recommendation.</p>
+          <div className="input-grid">
+            <div className="input-group"><label htmlFor="oppFormQuick">Opponent Formation</label><FormationSelect name="oppFormQuick" value={freeInputs.oppFormQuick} onChange={handleFreeChange}/></div>
+            <div className="input-group"><label htmlFor="strengthQuick">Relative Strength</label><StrengthSelect name="strengthQuick" value={freeInputs.strengthQuick} onChange={handleFreeChange}/></div>
+          </div>
+          <button onClick={handleFreeCalc} disabled={loading} style={{marginTop:16}}>🚀 {loading?"Calculating…":"Get Free Counter"}</button>
+          <div id="quickResult">
+            {strategy&&strategies.length===0&&(
+              <div style={{marginTop:20,padding:20,background:"rgba(0,174,239,.1)",borderRadius:10,border:"1px solid var(--osm-cyan)"}}>
+                <h4 style={{color:"var(--osm-gold)"}}>Recommended: <strong>{strategy.formation}</strong> — {strategy.gamePlan}</h4>
+                <p style={{margin:"8px 0"}}>Win probability: <strong>{strategy.winProb??strategy.winProbability}%</strong></p>
+                <p style={{fontSize:"0.9em",color:"var(--text-bright)",lineHeight:1.6}}>{strategy.explanation}</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Advanced Engine */}
+        <section id="engineInputs" className="card">
+          <h2>⚙️ Advanced Tactical Engine</h2>
+          <div className="input-grid">
+            <div className="input-group"><label>My Team Strength vs Opponent</label><StrengthSelect name="strengthLevel" value={inputs.strengthLevel} onChange={handleChange as any}/></div>
+            <div className="input-group"><label>Opponent Formation{inputs.oppForm&&<FormationTypeBadge formation={inputs.oppForm}/>}</label><FormationSelect name="oppForm" value={inputs.oppForm} onChange={handleChange as any}/></div>
+          </div>
+          {presetApplied&&presetFormationLabel&&(
+            <div role="status" style={{margin:"8px 0 16px",padding:"10px 16px",background:"rgba(0,174,239,.15)",borderRadius:8,border:"1px solid rgba(0,174,239,.4)",fontSize:"0.88em",color:"var(--osm-cyan)",display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:"1.2em"}}>✅</span><span>Opponent tactics auto-filled from <strong>{presetFormationLabel}</strong> formation meta.</span>
+            </div>
+          )}
+          <div className="input-grid">
+            <div className="input-group"><label>Opponent Playing Style</label><select name="oppPlayStyle" value={inputs.oppPlayStyle} onChange={handleChange}><option value="">Select Style</option><option value="counter">Counter Attack</option><option value="passing">Passing Game</option><option value="wing">Wing Play</option><option value="long">Long Ball</option><option value="shoot">Shoot on Sight</option></select></div>
+            <div className="input-group"><label>Opponent Marking</label><select name="oppMarking" value={inputs.oppMarking} onChange={handleChange}><option value="zonal">Zonal</option><option value="Man-to-Man">Man-to-Man</option></select></div>
+            <div className="input-group" style={{display:"flex",alignItems:"center",gap:12}}>
+              <label style={{margin:0}}>Opponent Offside Trap</label>
+              <input type="checkbox" name="oppOffside" checked={inputs.oppOffside} onChange={handleChange} style={{width:20,height:20,accentColor:"var(--osm-cyan)",cursor:"pointer"}}/>
+              <span style={{fontSize:"0.9em",color:inputs.oppOffside?"var(--osm-cyan)":"var(--text-dim)",fontWeight:inputs.oppOffside?600:400}}>{inputs.oppOffside?"Active":"Off"}</span>
+            </div>
+          </div>
+          <div className="opponent-tactics-section">
+            <h3>🎮 Opponent's Expected Tactics <span style={{fontSize:"0.75em",color:"var(--text-dim)",fontWeight:"normal",marginLeft:8}}>(auto-filled)</span></h3>
+            <h4>📊 Tactical Sliders</h4>
+            <div className="slider-grid">
+              {(["oppPressing","oppStyle","oppTempo"] as const).map((id,i)=>(
+                <SliderField key={id} id={id} label={["Opponent Pressing","Opponent Style","Opponent Tempo"][i]} description={["When they trigger the press","Risk level (low=cautious, high=aggressive)","Play speed (low=build-up, high=direct)"][i]} value={inputs[id]} onChange={handleSlider} stylePreset={inputs.oppPlayStyle?STYLE_SLIDER_PRESETS[inputs.oppPlayStyle]??null:null}/>
+              ))}
+            </div>
+            <h4>📋 Opponent Line Tactics</h4>
+            <div className="input-grid">
+              <div className="input-group"><label>Opponent Forwards</label><select name="oppForwards" value={inputs.oppForwards} onChange={handleChange}><option value="Attack only">Attack only</option><option value="Support midfield">Support midfield</option><option value="Help defend">Drop deep / Help defend</option></select></div>
+              <div className="input-group"><label>Opponent Midfielders</label><select name="oppMidfielders" value={inputs.oppMidfielders} onChange={handleChange}><option value="Stay in position">Stay in position</option><option value="Go forward">Go forward</option><option value="Protect the defenders">Protect the defenders</option></select></div>
+              <div className="input-group"><label>Opponent Defenders</label><select name="oppDefenders" value={inputs.oppDefenders} onChange={handleChange}><option value="Stay behind">Stay behind / Defend deep</option><option value="Move forward">Support midfield</option><option value="Attacking full-backs">Attacking full-backs</option></select></div>
+            </div>
+          </div>
+          <h4>🏟️ Match Context</h4>
+          <div className="input-grid">
+            <div className="input-group"><label>Venue</label><select name="venue" value={inputs.venue} onChange={handleChange}><option value="home">🏠 Home</option><option value="away">✈️ Away</option></select></div>
+            <div className="input-group"><label>Pitch Level</label><select name="pitchLv" value={inputs.pitchLv} onChange={handleChange}><option value="0">Level 0 — 0%</option><option value="1">Level 1 — +2%</option><option value="2">Level 2 — +4%</option><option value="3">Level 3 — +6%</option></select></div>
+            <div className="input-group"><label>Training Camp Intensity</label><select name="campInt" value={inputs.campInt} onChange={handleChange}><option value="0">None / Expired</option><option value="25">25% — Small Event</option><option value="40">40% — Big Event</option></select></div>
+            <div className="input-group" style={{display:"flex",alignItems:"center",gap:12}}>
+              <label style={{margin:0}}>Secret Training Bonus (+2%)</label>
+              <input type="checkbox" id="secretTrain" checked={inputs.secretTrain===2} onChange={e=>setInputs(p=>({...p,secretTrain:e.target.checked?2:0}))} style={{width:20,height:20,accentColor:"var(--osm-gold)",cursor:"pointer"}}/>
+              <span style={{fontSize:"0.9em",color:inputs.secretTrain===2?"var(--osm-gold)":"var(--text-dim)",fontWeight:inputs.secretTrain===2?600:400}}>{inputs.secretTrain===2?"+2% Active":"Off"}</span>
+            </div>
+          </div>
+          <button onClick={generateCounterStrategy} disabled={loading||advUsesLeft<=0} style={{marginTop:10}}>🚀 {loading?"Generating…":"Generate Counter Strategy"}</button>
+          <div style={{marginTop:16,padding:"12px 16px",borderRadius:10,background:"rgba(0,0,0,.25)",border:"1px solid rgba(255,255,255,.08)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:"0.85em",color:"var(--text-dim)"}}>🔄 Advanced calculations this week</span>
+              <span style={{fontWeight:"bold",color:advUsesLeft>0?"var(--osm-cyan)":"#ff6b6b",fontSize:"0.9em"}}>{advUsesLeft} / {isSubscribed?2:1} remaining</span>
+            </div>
+            {advUsesLeft<=0&&advCountdown&&<div style={{marginTop:6,padding:"8px 12px",background:"rgba(255,107,107,.12)",borderRadius:8,border:"1px solid rgba(255,107,107,.3)",fontSize:"0.85em",color:"#ff9898"}}>⏱ Resets in <strong style={{color:"#ffb3b3"}}>{advCountdown}</strong></div>}
+          </div>
+        </section>
+
+        {/* ── Subscribe Box ── */}
+        <div className="subscribe-box">
+          <div className="subscribe-box-header">
+            <h3 className="subscribe-box-title">🎁 Want 2 Extra Free Calculations Per Week?</h3>
+            <p className="subscribe-box-sub">Subscribe with your email <strong>and</strong> refer a friend to unlock bonus strategies every week — completely free.</p>
+            {/* ← YOUR IMAGE: replacewithfreeproductcardimage-removebg-preview.png */}
+            <img src="/images/replacewithfreeproductcardimage-removebg-preview.png" alt="Subscribe for bonus calculations" className="subscribe-box-img"/>
+          </div>
+          <div className="subscribe-box-body">
+            <div className="subscribe-col">
+              <h4 style={{color:"#ffb400",margin:"0 0 14px",textAlign:"center",fontSize:"1.05em"}}>📧 Subscribe for +1 Free Calculation</h4>
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <input type="email" id="subscribeEmail" placeholder="Enter your email address" autoComplete="email" className="sub-input"/>
+                <button onClick={handleEmailSubscription} className="sub-btn-gold">Subscribe Now →</button>
+              </div>
+            </div>
+            <div className="subscribe-col">
+              <h4 style={{color:"#ffb400",margin:"0 0 14px",textAlign:"center",fontSize:"1.05em"}}>👥 Refer a Friend for +1 More</h4>
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <input type="email" id="referFriendEmail" placeholder="Enter your friend's email" autoComplete="email" className="sub-input"/>
+                <button onClick={()=>{const el=document.getElementById("referFriendEmail") as HTMLInputElement|null;if(el?.value?.trim())setShowReferModal(true);else setError("Please enter your friend's email address.");}} className="sub-btn-green">Send Referral →</button>
+                <p style={{margin:0,fontSize:"0.78em",color:"rgba(160,200,255,.6)",textAlign:"center"}}>Each friend who signs up unlocks +1 bonus calculation/week</p>
+              </div>
+            </div>
+            {user&&<div style={{width:"100%",display:"flex",justifyContent:"center",marginTop:4}}><button onClick={handleCopyReferral} className={`referral-link-btn${referralCopied?" copied":""}`}>{referralCopied?"✅ Referral link copied!":"🔗 Copy your referral link"}</button></div>}
+            <p style={{width:"100%",margin:0,fontSize:"0.75em",color:"rgba(160,200,255,.4)",textAlign:"center"}}>🔒 We respect your privacy. No spam, unsubscribe anytime.</p>
+          </div>
+        </div>
+
+        {/* Results */}
+        {strategy&&results&&(
+          <section id="engineResults" className="card">
+            <h2>🎯 Recommended Counter Strategy</h2>
+            <div style={{padding:20,background:"rgba(255,180,0,.1)",borderRadius:10,border:"1px solid rgba(255,180,0,.4)",marginBottom:24}}>
+              <div style={{display:"flex",flexWrap:"wrap",gap:20,justifyContent:"space-between",alignItems:"center"}}>
+                <div><div style={{fontSize:"1.8em",fontWeight:"bold",color:"var(--osm-gold)"}}>{strategy.formation}</div><div style={{color:"var(--text-bright)"}}>{strategy.gamePlan}</div></div>
+                <div style={{fontSize:"2em",fontWeight:"bold",color:"var(--osm-cyan)",textAlign:"right"}}>{strategy.winProb??strategy.winProbability}%<div style={{fontSize:"0.42em",color:"var(--text-dim)",fontWeight:"normal"}}>win probability</div></div>
+              </div>
+              <p style={{marginTop:14,fontSize:"0.92em",color:"var(--text-bright)",lineHeight:1.6}}>{strategy.explanation}</p>
+            </div>
+            <h4>📊 Your Recommended Tactical Settings</h4>
+            <div className="slider-grid">
+              {([{key:"recPressing",label:"Your Pressing",desc:"Recommended pressing intensity"},{key:"recStyle",label:"Your Style",desc:"Recommended risk/attack style"},{key:"recTempo",label:"Your Tempo",desc:"Recommended play speed"}] as const).map(({key,label,desc})=>(
+                <SliderField key={key} id={key} label={label} description={desc} value={(results as any)[key]} onChange={()=>{}} disabled highlight/>
+              ))}
+            </div>
+            <h4>📋 Your Recommended Line Tactics</h4>
+            <div className="input-grid">
+              <div className="input-group"><label>Your Forwards</label><select disabled value={results.recForwards} onChange={()=>{}}><option>Attack only</option><option>Support midfield</option><option>Drop deep / Help defend</option></select></div>
+              <div className="input-group"><label>Your Midfielders</label><select disabled value={results.recMidfielders} onChange={()=>{}}><option>Stay in position</option><option>Go forward</option><option>Protect the defenders</option></select></div>
+              <div className="input-group"><label>Your Defenders</label><select disabled value={results.recDefenders} onChange={()=>{}}><option>Stay behind / Defend deep</option><option>Support midfield</option><option>Attacking full-backs</option></select></div>
+              <div className="input-group" style={{display:"flex",alignItems:"center",gap:10}}><label style={{margin:0}}>Your Marking</label><span style={{color:"var(--osm-cyan)",fontWeight:"bold"}}>{results.recMarking}</span></div>
+              <div className="input-group" style={{display:"flex",alignItems:"center",gap:10}}><label style={{margin:0}}>Offside Trap</label><span style={{color:results.recOffside?"var(--osm-gold)":"var(--text-dim)",fontWeight:"bold"}}>{results.recOffside?"✅ Active":"❌ Disabled"}</span></div>
+            </div>
+            {(strategy.criticalConstraints?.length??0)>0&&(<div style={{marginTop:20}}><h4>⚡ Structural Analysis</h4><ul style={{paddingLeft:20,display:"flex",flexDirection:"column",gap:8}}>{strategy.criticalConstraints!.map((c,i)=><li key={i} style={{color:c.startsWith("⚠")?"#ff9800":"var(--text-bright)",fontSize:"0.9em",lineHeight:1.55}}>{c}</li>)}</ul></div>)}
+            {strategies.length>1&&(
+              <div className="alternative-formations-container" style={{marginTop:24}}>
+                <h4>🔄 Alternative Formations</h4>
+                <div className="alternative-formations-grid">
+                  {strategies.map((alt,idx)=>(
+                    <div key={idx} className={`alternative-formation-card${alt===strategy?" selected":""}`} role="button" tabIndex={0} onClick={()=>applyStrategyToResults(alt)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")applyStrategyToResults(alt);}}>
+                      <div className="formation-name">{alt.formation}</div><div className="formation-type">{alt.gamePlan}</div>
+                      <div className="win-prob">Win: {alt.winProb??alt.winProbability}%</div>
+                      <div className="formation-strengths" style={{fontSize:"0.8em",marginTop:4}}>{alt.explanation?.slice(0,90)}…</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Error */}
+        {error&&(
+          <div role="alert" style={{background:"rgba(255,152,0,.2)",padding:20,borderRadius:8,marginTop:20,border:"1px solid rgba(255,152,0,.5)",color:"#ffa726",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+            <span>❌ {error}</span>
+            <button onClick={()=>setError("")} style={{background:"transparent",border:"none",color:"#ffa726",cursor:"pointer",fontSize:"1.2em",padding:"0 4px",flexShrink:0}} aria-label="Dismiss error">×</button>
+          </div>
+        )}
+
+        {/* ── PRICING ── */}
+        <section id="pricing" className="card">
+          <h2>💎 Pick Your Level</h2>
+          <p style={{textAlign:"center",color:"var(--text-dim)",marginBottom:24,fontSize:"0.95em"}}>Choose monthly subscription or one-time lifetime purchase — both include all future updates!</p>
+          <div className="pricing-grid">
+
+            {/* FREE */}
+            <div className="product-card card-free">
+              <div className="pc-img-wrap">
+                <img className="product-image" src="/images/freeproductcardimage-removebg-preview.png" alt="Free tier"/>
+              </div>
+              <h3>Free</h3>
+              <div className="price">$0</div>
+              <ul className="benefit-list">
+                <li>2 counter strategies / week</li><li>Basic counter formation</li><li>Formation meta presets</li><li>Install as App (PWA)</li>
+              </ul>
+              <button onClick={scrollToSubscribe} style={{marginTop:"auto",width:"100%"}}>Subscribe &amp; Refer a Friend →</button>
+              <p style={{fontSize:"0.75em",color:"var(--text-dim)",marginTop:8,textAlign:"center"}}>Every additional friend = additional free calculation</p>
+            </div>
+
+            {/* EPIC — blue, productimageepic.png */}
+            <div className="product-card card-epic">
+              <span className="tag featured">MOST POPULAR</span>
+              <div className="pc-img-wrap">
+                {/* ← YOUR IMAGE: productimageepic.png */}
+                <img className="product-image" src="/images/productimageepic.png" alt="Epic tier"/>
+              </div>
+              <h3>Epic</h3>
+              <div className="price">€4.95<span style={{fontSize:".5em"}}>/mo</span></div>
+              <ul className="benefit-list">
+                <li>7 advanced calculations / week</li><li>Opponent tactic preview</li><li>Monthly Scouting Database</li><li>OSM Basic Guide PDF</li>
+              </ul>
+              <button onClick={()=>setCheckoutTier("epic")} style={{width:"100%",marginBottom:8}}>Monthly — €4.95/mo</button>
+              <button onClick={()=>setCheckoutTier("epic_lifetime")} className="btn-lifetime-green">⭐ Lifetime — €119.95</button>
+              <p style={{fontSize:"0.75em",color:"rgba(200,230,255,.6)",marginTop:8,textAlign:"center"}}>Lifetime includes all features + auto-updates forever</p>
+            </div>
+
+            {/* ELITE — purple, turkish.png */}
+            <div className="product-card card-elite">
+              <div className="pc-img-wrap">
+                {/* ← YOUR IMAGE: turkish.png */}
+                <img className="product-image" src="/images/turkish.png" alt="Elite tier"/>
+              </div>
+              <h3>Elite</h3>
+              <div className="price">€9.95<span style={{fontSize:".5em"}}>/mo</span></div>
+              <ul className="benefit-list">
+                <li>Unlimited advanced calculations</li><li>Opponent tactic preview</li><li>Monthly Scouting Database</li><li>OSM Basic Guide PDF</li><li>OSM Advanced Guide PDF</li><li>OSM Pro Guide PDF</li><li>OSM Discord Community Access</li>
+              </ul>
+              <button onClick={()=>setCheckoutTier("elite")} style={{width:"100%",marginBottom:8}}>Monthly — €9.95/mo</button>
+              <button onClick={()=>setCheckoutTier("elite_lifetime")} className="btn-lifetime-green">⭐ Lifetime — €299.95</button>
+              <p style={{fontSize:"0.75em",color:"rgba(220,190,255,.6)",marginTop:8,textAlign:"center"}}>Lifetime includes all features + auto-updates forever</p>
+            </div>
+
+            {/* LEGENDARY — orange/amber */}
+            <div className="product-card card-legendary">
+              <span className="tag legend">BEST VALUE</span>
+              <div className="pc-img-wrap legendary-image-wrap">
+                <img className="product-image legendary-hero-img" src="https://i.ibb.co/YFZBXspw/Gemini-Generated-Image-omupndomupndomup.png" alt="Legendary tier"/>
+                <div className="legendary-img-badge">📖 OSM Legendary Architect</div>
+              </div>
+              <h3>Legendary</h3>
+              <div className="price">€19.95<span style={{fontSize:".5em"}}>/mo</span></div>
+              <ul className="benefit-list">
+                <li>✅ Everything in Free, Epic &amp; Elite</li><li>Real-time adjustments</li><li>Match-specific tactics</li><li>OSM Bible PDF</li><li>Private Discord role</li><li>🗄️ Full Tactics Archive</li>
+              </ul>
+              <button onClick={()=>setCheckoutTier("legendary")} style={{width:"100%",marginBottom:8}}>🏆 Monthly — €19.95/mo</button>
+              <button onClick={()=>setCheckoutTier("legendary_lifetime")} className="btn-lifetime-green">⭐ Lifetime — €399.95</button>
+              <p style={{fontSize:"0.75em",color:"rgba(255,230,180,.6)",marginTop:8,textAlign:"center"}}>Lifetime includes all features + auto-updates forever</p>
+            </div>
+
+          </div>
+        </section>
+      </main>
+
+      {/* Checkout */}
+      {checkoutTier&&<CheckoutPage tier={checkoutTier} userEmail={user?.email} onClose={()=>setCheckoutTier(null)}/>}
+
+      {/* Stripe success */}
+      {subscribed&&(
+        <div style={{position:"fixed",inset:0,zIndex:99999,background:"rgba(5,15,35,0.98)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div style={{background:"linear-gradient(160deg,#0d1e3a 0%,#091528 100%)",borderRadius:20,padding:"48px 40px",maxWidth:520,width:"100%",textAlign:"center",border:"2px solid rgba(0,200,100,.4)",boxShadow:"0 0 60px rgba(0,200,100,.2)"}}>
+            <div style={{fontSize:"4em",marginBottom:16}}>🎉</div>
+            <h2 style={{margin:"0 0 12px",color:"#00c864",fontSize:"1.8em"}}>Welcome to OSM Counter NG!</h2>
+            <p style={{margin:"0 0 24px",color:"var(--text-bright)",fontSize:"1.05em",lineHeight:1.6}}>Your subscription is being processed. You'll receive a confirmation email shortly.</p>
+            <button onClick={()=>{dismissSubscribed();window.location.reload();}} style={{padding:"14px 36px",borderRadius:10,background:"linear-gradient(135deg,#00c864,#00a050)",color:"#fff",border:"none",fontWeight:"bold",fontSize:"1em",cursor:"pointer"}}>Start Using Premium Features →</button>
+          </div>
+        </div>
+      )}
+
+      {/* Stripe cancel */}
+      {checkoutCancelled&&(
+        <div style={{position:"fixed",inset:0,zIndex:99999,background:"rgba(5,15,35,0.98)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div style={{background:"linear-gradient(160deg,#0d1e3a 0%,#091528 100%)",borderRadius:20,padding:"48px 40px",maxWidth:520,width:"100%",textAlign:"center",border:"2px solid rgba(255,152,0,.4)",boxShadow:"0 0 60px rgba(255,152,0,.2)"}}>
+            <div style={{fontSize:"4em",marginBottom:16}}>🙏</div>
+            <h2 style={{margin:"0 0 12px",color:"#ff9800",fontSize:"1.8em"}}>Checkout Cancelled</h2>
+            <p style={{margin:"0 0 24px",color:"var(--text-bright)",fontSize:"1.05em",lineHeight:1.6}}>No worries! Your checkout was cancelled. You can try again anytime.</p>
+            <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
+              <button onClick={()=>dismissCheckoutCancelled()} style={{padding:"14px 36px",borderRadius:10,background:"linear-gradient(135deg,var(--osm-gold),#ffa000)",color:"var(--osm-navy)",border:"none",fontWeight:"bold",fontSize:"1em",cursor:"pointer"}}>View Plans</button>
+              <button onClick={()=>dismissCheckoutCancelled()} style={{padding:"14px 24px",borderRadius:10,background:"rgba(255,255,255,.1)",color:"var(--text-bright)",border:"1px solid rgba(255,255,255,.2)",fontWeight:"bold",fontSize:"1em",cursor:"pointer"}}>Continue Free</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <GoldenTicketModal isOpen={showGoldenTicket} onClose={()=>setShowGoldenTicket(false)} onSubmit={handleGoldenTicketSubmit}/>
+
+      {/* Exit Intent — gametheory.png passed as prop */}
+      <ExitIntentPopup isOpen={showExitIntentPopup} onClose={()=>setShowExitIntentPopup(false)} imageSrc="/images/gametheory.png"/>
+
+      {/* ── REFER A FRIEND MODAL — consistent popup style + friendreferralnobg.png ── */}
+      {showReferModal&&(
+        <div className="popup-overlay active" role="dialog" aria-modal="true" onClick={e=>{if(e.target===e.currentTarget)setShowReferModal(false);}}>
+          <div className="subscription-popup refer-popup">
+            <button className="popup-close" onClick={()=>setShowReferModal(false)} aria-label="Close">×</button>
+            <div className="popup-header"><h3>👥 Refer a Friend</h3></div>
+            {/* ← YOUR IMAGE: friendreferralnobg.png */}
+            <div className="refer-img-wrap">
+              <img src="/images/friendreferralnobg.png" alt="Refer a Friend" className="refer-popup-img"/>
+            </div>
+            <div className="popup-content">
+              <div className="popup-icon">🎁</div>
+              <p className="popup-text">Your referral is on its way! When your friend signs up, you'll automatically unlock <strong style={{color:"var(--osm-gold)"}}>+1 free advanced calculation per week</strong>.</p>
+              <ul className="popup-features">
+                <li>Friend receives a personal invite email</li>
+                <li>Your bonus unlocks the moment they join</li>
+                <li>No limit — refer more friends, earn more!</li>
+                <li>Bonus stacks with your subscription tier</li>
+              </ul>
+              {user&&(
+                <div className="refer-link-box">
+                  <span className="refer-link-label">🔗 Your referral link</span>
+                  <div className="refer-link-row">
+                    <input readOnly value={`${PROD_URL}?ref=${user.id}`} className="refer-link-input"/>
+                    <button onClick={handleCopyReferral} className={`refer-copy-btn${referralCopied?" copied":""}`}>{referralCopied?"✅ Copied!":"Copy"}</button>
+                  </div>
+                </div>
+              )}
+              <div className="popup-actions">
+                <button className="popup-btn primary" onClick={()=>{if(user)handleCopyReferral();const el=document.getElementById("referFriendEmail") as HTMLInputElement|null;if(el)el.value="";setShowReferModal(false);}}>{user?"🔗 Copy My Referral Link":"✅ Got It!"}</button>
+                <button className="popup-btn secondary" onClick={()=>setShowReferModal(false)}>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Install PWA Modal */}
+      {showInstallModal&&(
+        <div className="popup-overlay active" role="dialog" aria-modal="true" onClick={e=>{if(e.target===e.currentTarget)setShowInstallModal(false);}}>
+          <div className="subscription-popup install-popup">
+            <button className="popup-close" onClick={()=>setShowInstallModal(false)} aria-label="Close">×</button>
+            <div className="popup-header"><h3>📲 Install as App</h3></div>
+            <div className="install-popup-img-wrap"><img src="/images/iamgeforpwainstallpopup.png" alt="Install OSM Counter NG" className="install-popup-img"/></div>
+            <div className="popup-content">
+              <p className="popup-text" style={{marginBottom:16}}>Add OSM Counter NG to your Home Screen — and unlock <strong style={{color:"var(--osm-gold)"}}>an additional free advanced calculation</strong> for installing!</p>
+              <ul className="popup-features">
+                <li><strong>iOS (Safari):</strong> Tap <span style={{color:"var(--osm-cyan)"}}>Share ↑</span> → <em>Add to Home Screen</em></li>
+                <li><strong>Android (Chrome):</strong> Tap <span style={{color:"var(--osm-cyan)"}}>⋮ Menu</span> → <em>Add to Home Screen</em></li>
+                <li>Works offline — full native app experience</li>
+                <li>Instant launch, no browser bar or lag</li>
+              </ul>
+              <div className="install-tip-box">💡 <strong style={{color:"var(--osm-cyan)"}}>Tip:</strong> After installing, open from your Home Screen and your bonus will be credited automatically.</div>
+              <div className="popup-actions">
+                {canInstall?(<button className="popup-btn primary" onClick={async()=>{const a=await promptInstall();if(a)setShowInstallModal(false);}}>📥 Install Now</button>):(
+                  <button className="popup-btn primary" onClick={()=>setShowInstallModal(false)}>✅ Got It — Installing Now!</button>
+                )}
+                <button className="popup-btn secondary" onClick={()=>setShowInstallModal(false)}>Maybe Later</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <footer style={{background:"#0a0f1a",borderTop:"1px solid rgba(0,174,239,0.2)",padding:"60px 20px 30px",marginTop:60,color:"#a0b4c8"}}>
+        <div style={{maxWidth:"1200px",margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(250px,1fr))",gap:"40px"}}>
+          <div>
+            <h4 style={{color:"#ffb400",marginBottom:15,fontSize:"1.4em"}}>OSM COUNTER NG</h4>
+            <p style={{lineHeight:1.6,marginBottom:15,fontSize:"0.95em"}}>Professional tactical analysis for Online Soccer Manager managers worldwide.</p>
+            <p style={{fontSize:"0.8em",color:"#6c7a96",marginBottom:20}}>* Not associated with Online Soccer Manager</p>
+            <p style={{color:"#ffb400",fontWeight:"bold"}}>⭐ Trusted by 12,800+ managers</p>
+          </div>
+          <div>
+            <h4 style={{color:"#ffb400",marginBottom:20,fontSize:"1.2em"}}>PRODUCT</h4>
+            <ul style={{listStyle:"none",padding:0,margin:0}}>
+              {([["#freeTier","Free Counter"],["#engineInputs","Advanced Engine"],["#pricing","Pricing"],["/contact","Contact / Support"]] as [string,string][]).map(([href,label])=>(
+                <li key={href} style={{marginBottom:12}}><a href={href} style={{color:"#a0b4c8",textDecoration:"none"}} onMouseEnter={e=>(e.currentTarget.style.color="#00aeef")} onMouseLeave={e=>(e.currentTarget.style.color="#a0b4c8")}>{label}</a></li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h4 style={{color:"#ffb400",marginBottom:20,fontSize:"1.2em"}}>CONNECT</h4>
+            <p style={{marginBottom:12}}><span style={{color:"#ffb400"}}>✉️</span> <a href="mailto:support@osmtactical.com" style={{color:"#a0b4c8",textDecoration:"none"}} onMouseEnter={e=>(e.currentTarget.style.color="#00aeef")} onMouseLeave={e=>(e.currentTarget.style.color="#a0b4c8")}>support@osmtactical.com</a></p>
+            <div style={{display:"flex",gap:"20px",fontSize:"1.8em"}}>
+              {([["🟣","Discord","https://discord.gg/osmcounter"],["🐦","Twitter","https://twitter.com/osmcounterng"],["▶️","YouTube","https://youtube.com/@osmcounterng"],["📘","Facebook","https://facebook.com/osmcounterng"],["🎵","TikTok","https://tiktok.com/@osmcounterng"]] as [string,string,string][]).map(([icon,label,href])=>(
+                <a key={label} href={href} aria-label={label} target="_blank" rel="noopener noreferrer" style={{color:"#a0b4c8",textDecoration:"none"}} onMouseEnter={e=>(e.currentTarget.style.color="#00aeef")} onMouseLeave={e=>(e.currentTarget.style.color="#a0b4c8")}>{icon}</a>
+              ))}
+            </div>
+          </div>
+        </div>
+        <hr style={{border:"none",borderTop:"1px solid rgba(0,174,239,0.2)",margin:"40px 0 20px"}}/>
+        <div style={{maxWidth:"1200px",margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"15px",fontSize:"0.9em"}}>
+          <div>© 2025 OSM Counter NG. All rights reserved. &nbsp;•&nbsp; ⚙️ Engine updated: 21 Feb 2026</div>
+          <div style={{display:"flex",gap:"20px"}}>
+            {([["Terms","/terms"],["Privacy","/privacy"],["Security","/security"]] as [string,string][]).map(([label,href])=>(
+              <a key={href} href={href} style={{color:"#a0b4c8",textDecoration:"none"}} onMouseEnter={e=>(e.currentTarget.style.color="#00aeef")} onMouseLeave={e=>(e.currentTarget.style.color="#a0b4c8")}>{label}</a>
+            ))}
+          </div>
+        </div>
+      </footer>
+    </>
+  );
 }
-
-/* ═══════════════════════════════════════════════════════
-   PWA STANDALONE
-═══════════════════════════════════════════════════════ */
-@media (display-mode: standalone) {
-  body { overscroll-behavior:none; -webkit-overflow-scrolling:touch; -webkit-user-select:none; user-select:none;
-    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
-    padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); }
-  header { padding-top:calc(40px + env(safe-area-inset-top)); }
-  html { overscroll-behavior-y:none; }
-}
-
-/* ═══════════════════════════════════════════════════════
-   PWA LOGIN OVERLAY
-═══════════════════════════════════════════════════════ */
-.pwa-login-overlay { position:fixed; inset:0; background:linear-gradient(160deg,#0c1120 0%,#001a40 60%,#0c1120 100%); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 30px; animation:pwaFadeIn .45s cubic-bezier(.22,1,.36,1); }
-@keyframes pwaFadeIn { from{opacity:0;transform:scale(.96)} to{opacity:1;transform:scale(1)} }
-.pwa-login-modal { width:100%; max-width:340px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:16px; }
-.pwa-login-logo   { width:96px; height:96px; border-radius:22px; object-fit:cover; filter:drop-shadow(0 0 20px rgba(0,174,239,.55)); margin-bottom:4px; animation:pwaLogoPulse 2.5s ease-in-out infinite; }
-@keyframes pwaLogoPulse { 0%,100%{filter:drop-shadow(0 0 18px rgba(0,174,239,.55))} 50%{filter:drop-shadow(0 0 34px rgba(0,174,239,.9))} }
-.pwa-login-title    { font-size:2em; font-weight:800; color:var(--text-bright); text-shadow:0 0 16px var(--osm-cyan); margin:0; }
-.pwa-login-subtitle { font-size:1em; color:var(--text-dim); line-height:1.5; margin:0 0 10px; }
-.pwa-google-btn  { width:100%; display:flex; align-items:center; justify-content:center; gap:10px; padding:15px 20px; border-radius:12px; background:#4285F4; color:#fff; font-size:1.05em; font-weight:700; border:none; cursor:pointer; box-shadow:0 4px 20px rgba(66,133,244,.45); transition:all .25s; }
-.pwa-google-btn:hover  { background:#3367d6; transform:translateY(-1px); box-shadow:0 6px 24px rgba(66,133,244,.6); }
-.pwa-discord-btn { width:100%; display:flex; align-items:center; justify-content:center; gap:10px; padding:15px 20px; border-radius:12px; background:#5865F2; color:#fff; font-size:1.05em; font-weight:700; border:none; cursor:pointer; box-shadow:0 4px 20px rgba(88,101,242,.45); transition:all .25s; }
-.pwa-discord-btn:hover { background:#4752c4; transform:translateY(-1px); box-shadow:0 6px 24px rgba(88,101,242,.6); }
-.pwa-skip-btn { width:100%; padding:12px 20px; border-radius:12px; background:transparent; color:var(--text-dim); font-size:.95em; font-weight:600; border:1.5px solid rgba(160,180,200,.3); cursor:pointer; transition:all .25s; box-shadow:none; }
-.pwa-skip-btn:hover { border-color:rgba(160,180,200,.65); color:var(--text-bright); transform:none; box-shadow:none; }
-.pwa-login-note { margin:0; font-size:.82em; color:var(--text-dim); opacity:.7; }
-
-/* ═══════════════════════════════════════════════════════
-   RESPONSIVE — PORTRAIT
-═══════════════════════════════════════════════════════ */
-@media (max-width: 1100px) { .pricing-grid { grid-template-columns: repeat(2,1fr); } }
-
-@media (max-width: 768px) {
-  h1{font-size:2em} h2{font-size:1.6em} h3{font-size:1.3em} h4{font-size:1.1em}
-  main.glass{padding:16px 12px;margin:12px} .card{padding:18px 14px;margin-bottom:20px}
-  .input-grid{grid-template-columns:1fr;gap:14px;margin:14px 0}
-  .slider-grid{grid-template-columns:1fr;gap:16px;margin:14px 0}
-  .pricing-grid{grid-template-columns:1fr;gap:24px;max-width:380px;margin-left:auto;margin-right:auto}
-  .hero-title{font-size:2.1em} .hero-sub{font-size:1.1em}
-  .hero-btn-primary,.hero-btn-outline{padding:14px 26px;font-size:1.1em}
-  .trust-bar-inner{gap:14px}
-  .alternative-formations-grid{grid-template-columns:repeat(2,1fr)}
-  .popup-actions{flex-direction:column} .subscription-popup{width:96%}
-  .install-popup-img-wrap,.refer-img-wrap{max-height:160px}
-  .install-popup-img,.refer-popup-img{max-height:160px}
-  .popup-content{padding:18px 16px}
-  .subscribe-box-body{padding:40px 14px 22px;gap:14px}
-  .subscribe-col{flex:1 1 100%;max-width:100%}
-}
-
-@media (max-width: 480px) {
-  h1{font-size:1.7em} .hero-title{font-size:1.75em}
-  .hero-btns{flex-direction:column;align-items:center}
-  .hero-btn-primary,.hero-btn-outline{width:100%;max-width:340px;padding:14px 20px;font-size:1em}
-  .alternative-formations-grid{grid-template-columns:1fr}
-  .popup-icon{font-size:2.8em} .popup-header h3{font-size:1.3em}
-  .popup-text{font-size:.95em} .popup-content{padding:14px 12px}
-  .install-popup-img-wrap,.refer-img-wrap{max-height:130px}
-  .install-popup-img,.refer-popup-img{max-height:130px}
-  .pc-img-wrap{height:120px} .benefit-list{font-size:.82em} .price{font-size:1.7em}
-}
-
-/* ═══════════════════════════════════════════════════════
-   RESPONSIVE — LANDSCAPE (phones, h ≤ 500px)
-═══════════════════════════════════════════════════════ */
-@media (max-height: 500px) and (orientation: landscape) {
-  header{padding:10px 16px} h1{font-size:1.5em} h2{font-size:1.3em;margin:10px 0 6px} h3{font-size:1.15em;margin:6px 0} h4{font-size:1em;margin:8px 0 5px}
-  main.glass{padding:12px;margin:8px auto} .card{padding:12px;margin-bottom:14px}
-  .hero-section{padding:24px 16px 20px} .hero-title{font-size:1.7em;margin-bottom:10px}
-  .hero-sub{font-size:.95em;margin-bottom:20px} .hero-img{max-height:180px;object-fit:cover;margin-bottom:20px}
-  .hero-btn-primary,.hero-btn-outline{padding:11px 22px;font-size:1em}
-  .input-grid{grid-template-columns:repeat(2,1fr);gap:10px;margin:10px 0}
-  .slider-grid{grid-template-columns:repeat(2,1fr);gap:12px;margin:10px 0}
-  .slider-group{padding:12px} .slider-group label{font-size:.88rem;margin-bottom:6px}
-  .slider-description{font-size:.75rem;margin-top:4px}
-  .pricing-grid{grid-template-columns:repeat(4,1fr);gap:12px}
-  .pc-img-wrap{height:90px} .product-card{padding:28px 12px 16px}
-  .product-card h3{font-size:1.2em;min-height:1.6em} .price{font-size:1.5em;margin:6px 0}
-  .benefit-list{font-size:.78em;margin:10px 0} .benefit-list li{margin:5px 0;padding-left:18px}
-  button{padding:10px 18px;font-size:.95rem}
-  .popup-overlay{align-items:flex-start;padding-top:8px}
-  .subscription-popup{max-height:92vh;overflow-y:auto}
-  .install-popup-img-wrap,.refer-img-wrap{max-height:110px}
-  .install-popup-img,.refer-popup-img{max-height:110px}
-  .popup-icon{font-size:2.2em;margin-bottom:8px} .popup-content{padding:12px 16px}
-  .popup-header h3{font-size:1.3em} .popup-text{font-size:.92em;margin-bottom:10px}
-  .subscribe-box-header{padding:20px 16px 0} .subscribe-box-img{width:100px;height:100px;margin-bottom:-20px}
-  .subscribe-box-body{padding:30px 16px 16px;gap:12px} .subscribe-col{flex:1 1 280px;padding:16px 14px}
-  .trust-bar{padding:10px 16px} .trust-bar-inner{gap:18px}
-  .alternative-formations-grid{grid-template-columns:repeat(3,1fr)}
-  .popup-actions{flex-direction:row}
-}
-
-@media (max-height: 700px) and (min-width: 900px) and (orientation: landscape) {
-  .pricing-grid{grid-template-columns:repeat(4,1fr)} .hero-img{max-height:240px;object-fit:cover}
-}
+export default App;
