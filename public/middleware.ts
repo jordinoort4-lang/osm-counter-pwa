@@ -7,13 +7,7 @@ export async function middleware(req: NextRequest) {
   const supabase = createMiddlewareClient({ req, res })
   const { data: { session } } = await supabase.auth.getSession()
 
-  // Always allow these public paths
-  const publicPaths = ['/manifest.json', '/sw.js', '/_next/static', '/_next/image', '/favicon.ico']
-  if (publicPaths.some(path => req.nextUrl.pathname.startsWith(path))) {
-    return res
-  }
-
-  // If no session, redirect to login
+  // No session → redirect to login (but only for non-public paths)
   if (!session) {
     const url = req.nextUrl.clone()
     url.pathname = '/login'
@@ -23,7 +17,7 @@ export async function middleware(req: NextRequest) {
   return res
 }
 
-// Optional: improve performance by not running middleware on public paths at all
+// 👇 This matcher tells Next.js to run middleware on all paths EXCEPT these
 export const config = {
   matcher: '/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js).*)',
 }
