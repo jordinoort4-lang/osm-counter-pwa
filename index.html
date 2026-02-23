@@ -2,53 +2,86 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    
-    <!-- Aggressive cache busting – very important for Vite + Vercel -->
+
+    <!-- Aggressive cache busting — critical for Vite + Vercel deploys -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
 
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0c1120" />
-    
-    <!-- Modern PWA flags – replaced deprecated one -->
+
+    <!-- PWA flags — modern + Apple -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="OSM Counter" />
     <meta name="format-detection" content="telephone=no" />
-    
+
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <link rel="manifest" href="/manifest.json" />
-    
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
-    
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
     <title>OSM Master Strategist - AI Tactical Engine</title>
-    <meta name="description" content="Advanced tactical counter-strategy generator for Online Soccer Manager">
+    <meta name="description" content="Advanced tactical counter-strategy generator for Online Soccer Manager" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    
-    <!-- COMMENTED OUT – was causing MIME type 'text/html' error -->
-    <!-- 
+
+    <!--
+      Service Worker registration.
+      Previously commented out because /sw.js was 404-ing and Vercel
+      was returning its HTML 404 page, causing the browser to reject it
+      with "unsupported MIME type 'text/html'".
+      Now that public/sw.js is present this works correctly.
+    -->
     <script>
       if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js")
-            .then((registration) => {
-              console.log("Service Worker registered:", registration);
+        window.addEventListener("load", function () {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .then(function (registration) {
+              console.log("[OSM] Service Worker registered:", registration.scope);
+
+              // When a new SW is waiting (updated app), activate it immediately
+              // so users always get the latest tactical engine on next reload.
+              if (registration.waiting) {
+                registration.waiting.postMessage({ type: "SKIP_WAITING" });
+              }
+
+              registration.addEventListener("updatefound", function () {
+                var newWorker = registration.installing;
+                if (!newWorker) return;
+                newWorker.addEventListener("statechange", function () {
+                  if (
+                    newWorker.state === "installed" &&
+                    navigator.serviceWorker.controller
+                  ) {
+                    // New SW installed and ready — activate straight away.
+                    newWorker.postMessage({ type: "SKIP_WAITING" });
+                    console.log("[OSM] New Service Worker activated — reloading for fresh build.");
+                    window.location.reload();
+                  }
+                });
+              });
             })
-            .catch((error) => {
-              console.log("Service Worker registration failed:", error);
+            .catch(function (error) {
+              // Log but never throw — a broken SW must never break the app.
+              console.warn("[OSM] Service Worker registration failed:", error);
             });
         });
       }
     </script>
-    -->
   </body>
 </html>
