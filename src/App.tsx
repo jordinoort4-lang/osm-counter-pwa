@@ -315,7 +315,8 @@ const App: React.FC = () => {
   const [hasPaidPlan, _setHasPaidPlan] = useState<boolean>(false);
   const [freeCalcsLeft, setFreeCalcsLeft] = useState<number>(0);
   const [userEmail, setUserEmail] = useState<string>('');
-  const [userId, setUserId] = useState<string>('');
+  // FIX: setUserId renamed with _ prefix to suppress TS6133 (setter declared but never called)
+  const [userId, _setUserId] = useState<string>('');
 
   // ── UI / popup state ──────────────────────────────────────
   const [showBanner, setShowBanner] = useState<boolean>(true);
@@ -1244,7 +1245,8 @@ const App: React.FC = () => {
 
           <div className="product-card product-card--free">
             <div className="pc-img-wrap">
-              <img className="product-image" src="freeproductcardimage.png" alt="Free tier" />
+              {/* FIX: added /images/ prefix — Vercel deploys images to /images/ subfolder */}
+              <img className="product-image" src="/images/freeproductcardimage.png" alt="Free tier" />
             </div>
             <h3>Free</h3>
             <div className="price">€0 <span className="price-period">/mo</span></div>
@@ -1264,7 +1266,8 @@ const App: React.FC = () => {
             <span className="tag featured">Most Popular</span>
             <div className="product-card__glow" />
             <div className="pc-img-wrap">
-              <img className="product-image" src="productimageepic.png" alt="Epic tier" />
+              {/* FIX: added /images/ prefix */}
+              <img className="product-image" src="/images/productimageepic.png" alt="Epic tier" />
             </div>
             <h3>Epic</h3>
             <div className="price">€2.99 <span className="price-period">/mo</span></div>
@@ -1285,7 +1288,8 @@ const App: React.FC = () => {
 
           <div className="product-card product-card--elite">
             <div className="pc-img-wrap">
-              <img className="product-image" src="eliteproductcardimage-removebg-preview.png" alt="Elite tier" />
+              {/* FIX: added /images/ prefix */}
+              <img className="product-image" src="/images/eliteproductcardimage-removebg-preview.png" alt="Elite tier" />
             </div>
             <h3>Elite</h3>
             <div className="price">€5.99 <span className="price-period">/mo</span></div>
@@ -1308,7 +1312,8 @@ const App: React.FC = () => {
           <div className="product-card product-card--legendary legendary">
             <span className="tag legend">🏆 Ultimate</span>
             <div className="pc-img-wrap legendary-image-wrap">
-              <img className="legendary-hero-img" src="legendaryproductcardimage-removebg-preview.png" alt="Legendary tier" />
+              {/* FIX: added /images/ prefix */}
+              <img className="legendary-hero-img" src="/images/legendaryproductcardimage-removebg-preview.png" alt="Legendary tier" />
               <span className="legendary-img-badge">ALL FEATURES INCLUDED</span>
             </div>
             <h3>Legendary</h3>
@@ -1493,7 +1498,8 @@ const App: React.FC = () => {
         </div>,
         <div className="popup-content popup-content--referral">
           <div className="referral-hero-wrap">
-            <img className="referral-hero-img" src="friendreferralnobg.png" alt="Refer a friend" />
+            {/* FIX: added /images/ prefix */}
+            <img className="referral-hero-img" src="/images/friendreferralnobg.png" alt="Refer a friend" />
           </div>
           <div className="referral-reward-badge">
             <div className="referral-reward-badge__label">You receive per successful referral</div>
