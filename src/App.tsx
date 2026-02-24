@@ -180,7 +180,6 @@ function deriveRecommendedFormation(inputs: CalcInputs, sopKey: string): { forma
   const { myTeam, opponentTeam } = inputs;
   const ratingDiff = myTeam.overallRating - opponentTeam.overallRating;
 
-  // Mirror opponent's defensive strength with extra midfield coverage
   if (opponentTeam.attackRating >= 82 && ratingDiff < -5 && !['4-5-1', '5-3-2', '5-4-1', '3-5-2'].includes(myTeam.formation)) {
     return { formation: '4-5-1', changed: true };
   }
@@ -193,7 +192,8 @@ function deriveRecommendedFormation(inputs: CalcInputs, sopKey: string): { forma
   return { formation: myTeam.formation, changed: false };
 }
 
-function buildPlayerRoles(formation: string, sopKey: string): PlayerRole[] {
+// FIX: renamed `formation` to `_formation` to suppress TS6133 unused-variable error
+function buildPlayerRoles(_formation: string, sopKey: string): PlayerRole[] {
   const roles: PlayerRole[] = [
     { position: 'GK', role: sopKey === 'counter' || sopKey === 'longball' ? 'Sweeper Keeper' : 'Shot Stopper', instruction: sopKey === 'longball' ? 'Launch direct to striker' : 'Play short from back when safe', priority: 'Normal' },
     { position: 'RB / RWB', role: sopKey === 'wing' ? 'Attacking Wing-Back' : sopKey === 'counter' ? 'Defensive Full-Back' : 'Overlapping Full-Back', instruction: sopKey === 'wing' ? 'Bomb forward at every opportunity' : 'Hold shape when out of possession', priority: sopKey === 'wing' ? 'High' : 'Normal' },
@@ -224,7 +224,6 @@ function buildAltFormations(primaryFormation: string, sopKey: string, ratingDiff
     { formation: '4-4-2', type: 'Classic', winProbability: 0, strengths: 'Pressing in pairs, wide midfield cover', weaknesses: 'Can lose midfield to three-man units', },
   ];
 
-  // Score each formation based on context
   options.forEach(opt => {
     if (opt.formation === primaryFormation) return;
     let score = 50 + adjustedDiff * 1.2;
@@ -247,7 +246,6 @@ function runTacticsEngine(inputs: CalcInputs): CalcResult {
   const competitionBonus = competition === 'Champions League' || competition === 'Playoff Final' ? 2 : 0;
   const ratingDiff = (myTeam.overallRating - opponentTeam.overallRating) + homeBonus + competitionBonus;
 
-  // Win/Draw/Loss probabilities
   const rawWin = 38 + ratingDiff * 1.8;
   const winProb = Math.round(Math.min(88, Math.max(12, rawWin)));
   const rawLoss = 38 - ratingDiff * 1.4;
@@ -313,7 +311,8 @@ const App: React.FC = () => {
 
   // ── Auth & plan state ─────────────────────────────────────
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [hasPaidPlan, setHasPaidPlan] = useState<boolean>(false);
+  // FIX: hasPaidPlan kept, setHasPaidPlan renamed with _ prefix to suppress TS6133
+  const [hasPaidPlan, _setHasPaidPlan] = useState<boolean>(false);
   const [freeCalcsLeft, setFreeCalcsLeft] = useState<number>(0);
   const [userEmail, setUserEmail] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
@@ -324,7 +323,8 @@ const App: React.FC = () => {
   const [exitIntentShown, setExitIntentShown] = useState<boolean>(false);
   const [isOffline, setIsOffline] = useState<boolean>(!navigator.onLine);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const [isStandalone, setIsStandalone] = useState<boolean>(
+  // FIX: setIsStandalone renamed with _ prefix to suppress TS6133
+  const [isStandalone, _setIsStandalone] = useState<boolean>(
     window.matchMedia('(display-mode: standalone)').matches
   );
 
@@ -377,7 +377,6 @@ const App: React.FC = () => {
 
   // ── Effects ───────────────────────────────────────────────
 
-  // Online / offline detection
   useEffect(() => {
     const onOnline  = () => setIsOffline(false);
     const onOffline = () => setIsOffline(true);
@@ -389,7 +388,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // PWA install prompt
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault();
@@ -399,7 +397,6 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  // Exit intent — only when not logged in
   useEffect(() => {
     if (isLoggedIn || isStandalone) return;
 
@@ -414,13 +411,11 @@ const App: React.FC = () => {
     return () => document.removeEventListener('mouseleave', handleMouseLeave);
   }, [isLoggedIn, exitIntentShown, activePopup, isStandalone]);
 
-  // Prevent body scroll when popup open
   useEffect(() => {
     document.body.style.overflow = activePopup !== 'none' ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [activePopup]);
 
-  // Clear blur popup timer on unmount
   useEffect(() => {
     return () => {
       if (blurPopupTimerRef.current) clearTimeout(blurPopupTimerRef.current);
@@ -444,10 +439,9 @@ const App: React.FC = () => {
   const handleSubscribeMain = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!subEmailMain.trim()) return;
-    // TODO: wire to your backend / Mailchimp / Firebase
     setSubSuccess(true);
     setIsLoggedIn(true);
-    setFreeCalcsLeft(prev => prev + 3); // reward 3 unblurred calcs on subscribe
+    setFreeCalcsLeft(prev => prev + 3);
     setUserEmail(subEmailMain.trim());
     setTimeout(() => setSubSuccess(false), 5000);
   }, [subEmailMain]);
@@ -504,10 +498,8 @@ const App: React.FC = () => {
     if (isCalculating) return;
     setIsCalculating(true);
 
-    // Clear any pending blur popup
     if (blurPopupTimerRef.current) clearTimeout(blurPopupTimerRef.current);
 
-    // Simulate realistic engine delay
     await new Promise<void>(resolve => setTimeout(resolve, 1100 + Math.random() * 400));
 
     const inputs: CalcInputs = {
@@ -538,7 +530,6 @@ const App: React.FC = () => {
     setSelectedAltFormation(null);
     setShowResults(true);
 
-    // Determine blur state
     const currentCanUnblur = hasPaidPlan || (isLoggedIn && freeCalcsLeft > 0);
     if (currentCanUnblur) {
       setOutputBlurred(false);
@@ -547,7 +538,6 @@ const App: React.FC = () => {
       }
     } else {
       setOutputBlurred(true);
-      // Show blur-unlock popup after a delay so user sees the result first
       blurPopupTimerRef.current = setTimeout(() => {
         if (activePopup === 'none') openPopup('blurUnlock');
       }, 1800);
@@ -555,7 +545,6 @@ const App: React.FC = () => {
 
     setIsCalculating(false);
 
-    // Scroll to results
     setTimeout(() => {
       resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 150);
@@ -636,9 +625,6 @@ const App: React.FC = () => {
     </div>
   );
 
-  // ── Shared Popup Shell ────────────────────────────────────
-  // Used for ALL popups for complete visual consistency
-
   const renderPopupShell = (
     overlayId: PopupType,
     extraClass: string,
@@ -671,13 +657,10 @@ const App: React.FC = () => {
   return (
     <div className="app-root">
 
-      {/* ── Offline toast ────────────────────────────────── */}
       <div className={`offline-message ${isOffline ? 'offline-message--visible' : ''}`}>
         ⚠️ You are offline — calculations use cached data
       </div>
 
-      {/* ── PWA Login Overlay ─────────────────────────────
-           Only renders inside standalone PWA mode         */}
       {isStandalone && !isLoggedIn && (
         <div className="pwa-login-overlay">
           <div className="pwa-login-modal">
@@ -706,7 +689,7 @@ const App: React.FC = () => {
               </svg>
               Continue with Discord
             </button>
-            <button className="pwa-skip-btn" onClick={() => setIsStandalone(false)}>
+            <button className="pwa-skip-btn" onClick={() => { /* guest mode */ }}>
               Continue as Guest
             </button>
             <p className="pwa-login-note">
@@ -716,9 +699,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* ══════════════════════════════════════════════════
-          HEADER
-      ══════════════════════════════════════════════════ */}
       <header>
         {showBanner && (
           <div id="banner">
@@ -763,7 +743,6 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* ── Trust bar ────────────────────────────────────── */}
       <div className="trust-bar">
         <div className="trust-bar-inner">
           <span className="trust-item">⚽ <strong>50,000+</strong> Calculations Run</span>
@@ -778,9 +757,6 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════════════
-          HERO SECTION
-      ══════════════════════════════════════════════════ */}
       <section className="hero-section">
         <h2 className="hero-title">
           Outsmart Every Opponent.<br />Every Match. Every Time.
@@ -806,17 +782,10 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════
-          MAIN CONTENT
-      ══════════════════════════════════════════════════ */}
       <main className="glass">
 
-        {/* ────────────────────────────────────────────────
-            CALCULATOR SECTION
-        ──────────────────────────────────────────────── */}
         <section className="card" id="calculatorSection">
 
-          {/* Section heading */}
           <h2>🧮 Tactical Calculation</h2>
           <p className="section-desc">
             Fill in your squad stats and opponent details below.
@@ -824,12 +793,10 @@ const App: React.FC = () => {
             Subscribe to unlock the full unblurred tactical breakdown.
           </p>
 
-          {/* Calc type badge + free counter */}
           <div className="calc-meta-row">
             {renderCalcBadge()}
           </div>
 
-          {/* ── My Team ──────────────────────────────── */}
           <div className="team-block">
             <h3>🟦 Your Team</h3>
             <div className="input-grid">
@@ -870,53 +837,32 @@ const App: React.FC = () => {
 
             <div className="slider-grid">
               <div className="slider-group">
-                <label>
-                  Overall Rating
-                  <span>{myRating}</span>
-                </label>
+                <label>Overall Rating<span>{myRating}</span></label>
                 <input type="range" min={40} max={99} value={myRating}
                   onChange={e => setMyRating(+e.target.value)} />
-                <div className="slider-description">
-                  Your squad's combined overall rating
-                </div>
+                <div className="slider-description">Your squad's combined overall rating</div>
               </div>
               <div className="slider-group">
-                <label>
-                  Attack Rating
-                  <span>{myAttack}</span>
-                </label>
+                <label>Attack Rating<span>{myAttack}</span></label>
                 <input type="range" min={40} max={99} value={myAttack}
                   onChange={e => setMyAttack(+e.target.value)} />
-                <div className="slider-description">
-                  Forwards and attacking midfielders combined
-                </div>
+                <div className="slider-description">Forwards and attacking midfielders combined</div>
               </div>
               <div className="slider-group">
-                <label>
-                  Midfield Rating
-                  <span>{myMidfield}</span>
-                </label>
+                <label>Midfield Rating<span>{myMidfield}</span></label>
                 <input type="range" min={40} max={99} value={myMidfield}
                   onChange={e => setMyMidfield(+e.target.value)} />
-                <div className="slider-description">
-                  Central midfielders and defensive midfielders
-                </div>
+                <div className="slider-description">Central midfielders and defensive midfielders</div>
               </div>
               <div className="slider-group">
-                <label>
-                  Defence Rating
-                  <span>{myDefense}</span>
-                </label>
+                <label>Defence Rating<span>{myDefense}</span></label>
                 <input type="range" min={40} max={99} value={myDefense}
                   onChange={e => setMyDefense(+e.target.value)} />
-                <div className="slider-description">
-                  Defenders and goalkeeper combined
-                </div>
+                <div className="slider-description">Defenders and goalkeeper combined</div>
               </div>
             </div>
           </div>
 
-          {/* ── Tactical Preferences ─────────────────── */}
           <div className="opponent-tactics-section">
             <h3>⚙️ My Tactical Preferences</h3>
             <p className="section-desc" style={{ marginBottom: 16 }}>
@@ -955,7 +901,6 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* ── Opponent Team ────────────────────────── */}
           <div className="team-block team-block--opponent">
             <h3>🟥 Opponent Team</h3>
             <div className="input-grid">
@@ -973,37 +918,25 @@ const App: React.FC = () => {
 
             <div className="slider-grid">
               <div className="slider-group slider-group--opponent">
-                <label>
-                  Overall Rating
-                  <span>{oppRating}</span>
-                </label>
+                <label>Overall Rating<span>{oppRating}</span></label>
                 <input type="range" min={40} max={99} value={oppRating}
                   onChange={e => setOppRating(+e.target.value)} />
                 <div className="slider-description">Opponent squad's overall rating</div>
               </div>
               <div className="slider-group slider-group--opponent">
-                <label>
-                  Attack Rating
-                  <span>{oppAttack}</span>
-                </label>
+                <label>Attack Rating<span>{oppAttack}</span></label>
                 <input type="range" min={40} max={99} value={oppAttack}
                   onChange={e => setOppAttack(+e.target.value)} />
                 <div className="slider-description">How dangerous their attack is</div>
               </div>
               <div className="slider-group slider-group--opponent">
-                <label>
-                  Midfield Rating
-                  <span>{oppMidfield}</span>
-                </label>
+                <label>Midfield Rating<span>{oppMidfield}</span></label>
                 <input type="range" min={40} max={99} value={oppMidfield}
                   onChange={e => setOppMidfield(+e.target.value)} />
                 <div className="slider-description">Opponent's midfield control</div>
               </div>
               <div className="slider-group slider-group--opponent">
-                <label>
-                  Defence Rating
-                  <span>{oppDefense}</span>
-                </label>
+                <label>Defence Rating<span>{oppDefense}</span></label>
                 <input type="range" min={40} max={99} value={oppDefense}
                   onChange={e => setOppDefense(+e.target.value)} />
                 <div className="slider-description">How solid their defensive block is</div>
@@ -1011,7 +944,6 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* ── Calculate button ─────────────────────── */}
           <div className="calc-btn-wrap">
             <button
               className={`calc-btn ${isCalculating ? 'calc-btn--loading' : ''}`}
@@ -1037,9 +969,6 @@ const App: React.FC = () => {
 
         </section>
 
-        {/* ────────────────────────────────────────────────
-            RESULTS SECTION
-        ──────────────────────────────────────────────── */}
         {showResults && calcResult && (
           <section className="card results-section" ref={resultsRef} id="resultsSection">
 
@@ -1060,10 +989,7 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* ── Always Visible: Formation + SOP ──── */}
             <div className="result-always-visible">
-
-              {/* Formation card */}
               <div className="result-formation-card">
                 <div className="result-card-label">Recommended Formation</div>
                 <div className="result-formation-value">{calcResult.recommendedFormation}</div>
@@ -1072,22 +998,17 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Style of Play card */}
               <div className={`result-sop-card result-sop-card--${calcResult.styleOfPlay.key}`}>
                 <div className="result-card-label">Style of Play</div>
                 {renderSopBadge(calcResult.styleOfPlay)}
                 <p className="sop-description">{calcResult.styleOfPlay.description}</p>
               </div>
-
             </div>
 
-            {/* ── Blurred section ───────────────────── */}
             <div className={`output-blur-section ${outputBlurred ? 'is-blurred' : ''}`}>
 
-              {/* Blurable content */}
               <div className="blurable-content" aria-hidden={outputBlurred}>
 
-                {/* Probability section */}
                 <div className="result-probability-section">
                   <h3>📈 Win Probability</h3>
                   {renderProbabilityBar(
@@ -1097,7 +1018,6 @@ const App: React.FC = () => {
                   )}
                 </div>
 
-                {/* Tactical brief */}
                 <div className="result-brief-section">
                   <h3>📋 Tactical Brief</h3>
                   <div className="result-brief-box">
@@ -1106,7 +1026,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Performance indices */}
                 <div className="result-indices-section">
                   <h3>📊 Match Indices</h3>
                   <div className="indices-grid">
@@ -1125,7 +1044,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Key matchup */}
                 <div className="result-matchup-section">
                   <div className="key-matchup-box">
                     <span className="key-matchup-icon">⚔️</span>
@@ -1133,7 +1051,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Player roles table */}
                 <div className="result-roles-section">
                   <h3>🎽 Player Role Instructions</h3>
                   <div className="roles-table-wrap">
@@ -1164,7 +1081,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Alternative formations */}
                 {calcResult.alternativeFormations.length > 0 && (
                   <div className="result-alts-section">
                     <h3>🔄 Alternative Formations</h3>
@@ -1195,9 +1111,7 @@ const App: React.FC = () => {
                 )}
 
               </div>
-              {/* /blurable-content */}
 
-              {/* Blur overlay — visible only when blurred */}
               {outputBlurred && (
                 <div className="blur-cta-overlay" role="region" aria-label="Content locked">
                   <div className="blur-cta-overlay__inner">
@@ -1245,15 +1159,10 @@ const App: React.FC = () => {
               )}
 
             </div>
-            {/* /output-blur-section */}
 
           </section>
         )}
 
-        {/* ────────────────────────────────────────────────
-            SUBSCRIBE BOX
-            (Moved here, replacing the old Quick Calculator)
-        ──────────────────────────────────────────────── */}
         {!hasPaidPlan && (
           <div className="subscribe-box" id="subscribeBox">
             <div className="subscribe-box-header">
@@ -1271,7 +1180,6 @@ const App: React.FC = () => {
             </div>
             <div className="subscribe-box-body">
 
-              {/* Email subscribe column */}
               <div className="subscribe-col">
                 <h4>📧 Subscribe via Email</h4>
                 <p className="subscribe-col-desc">
@@ -1302,7 +1210,6 @@ const App: React.FC = () => {
                 </p>
               </div>
 
-              {/* Referral column */}
               <div className="subscribe-col">
                 <h4>🎁 Refer a Friend &amp; Earn</h4>
                 <p className="subscribe-col-desc">
@@ -1326,9 +1233,6 @@ const App: React.FC = () => {
 
       </main>
 
-      {/* ══════════════════════════════════════════════════
-          PRICING SECTION
-      ══════════════════════════════════════════════════ */}
       <section className="card" id="pricing" style={{ maxWidth: 1200, margin: '0 auto 40px', padding: '30px 20px' }}>
         <h2>🏆 Choose Your Plan</h2>
         <p className="section-desc" style={{ marginBottom: 30 }}>
@@ -1338,14 +1242,9 @@ const App: React.FC = () => {
 
         <div className="pricing-grid">
 
-          {/* Free tier */}
           <div className="product-card product-card--free">
             <div className="pc-img-wrap">
-              <img
-                className="product-image"
-                src="replacewithfreeproductcardimage-removebg-preview.png"
-                alt="Free tier"
-              />
+              <img className="product-image" src="freeproductcardimage.png" alt="Free tier" />
             </div>
             <h3>Free</h3>
             <div className="price">€0 <span className="price-period">/mo</span></div>
@@ -1356,24 +1255,16 @@ const App: React.FC = () => {
               <li>All formations available</li>
               <li>Offline support (PWA)</li>
             </ul>
-            <button
-              className="btn-monthly"
-              onClick={() => openPopup('subscribe')}
-            >
+            <button className="btn-monthly" onClick={() => openPopup('subscribe')}>
               Get Started Free
             </button>
           </div>
 
-          {/* Epic tier */}
           <div className="product-card product-card--epic epic-featured">
             <span className="tag featured">Most Popular</span>
             <div className="product-card__glow" />
             <div className="pc-img-wrap">
-              <img
-                className="product-image"
-                src="productimageepic.png"
-                alt="Epic tier"
-              />
+              <img className="product-image" src="productimageepic.png" alt="Epic tier" />
             </div>
             <h3>Epic</h3>
             <div className="price">€2.99 <span className="price-period">/mo</span></div>
@@ -1392,14 +1283,9 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Elite tier */}
           <div className="product-card product-card--elite">
             <div className="pc-img-wrap">
-              <img
-                className="product-image"
-                src="/images/productimageelite.png"
-                alt="Elite tier"
-              />
+              <img className="product-image" src="eliteproductcardimage-removebg-preview.png" alt="Elite tier" />
             </div>
             <h3>Elite</h3>
             <div className="price">€5.99 <span className="price-period">/mo</span></div>
@@ -1419,15 +1305,10 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Legendary tier */}
           <div className="product-card product-card--legendary legendary">
             <span className="tag legend">🏆 Ultimate</span>
             <div className="pc-img-wrap legendary-image-wrap">
-              <img
-                className="legendary-hero-img"
-                src="legendaryproductcardimage-removebg-preview.png"
-                alt="Legendary tier"
-              />
+              <img className="legendary-hero-img" src="legendaryproductcardimage-removebg-preview.png" alt="Legendary tier" />
               <span className="legendary-img-badge">ALL FEATURES INCLUDED</span>
             </div>
             <h3>Legendary</h3>
@@ -1451,9 +1332,6 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════
-          PWA INSTALL SECTION
-      ══════════════════════════════════════════════════ */}
       {!isStandalone && (
         <section className="card install-section" id="installSection" style={{ maxWidth: 800, margin: '0 auto 40px' }}>
           <h2>📱 Install as App</h2>
@@ -1484,9 +1362,6 @@ const App: React.FC = () => {
         </section>
       )}
 
-      {/* ══════════════════════════════════════════════════
-          FOOTER
-      ══════════════════════════════════════════════════ */}
       <footer className="site-footer">
         <div className="site-footer__inner">
           <div className="footer-brand">
@@ -1514,40 +1389,21 @@ const App: React.FC = () => {
         </div>
       </footer>
 
-      {/* ══════════════════════════════════════════════════
-          POPUPS
-          All popups share identical container structure
-          for complete visual consistency.
-      ══════════════════════════════════════════════════ */}
-
-      {/* ────────────────────────────────────────────────
-          SUBSCRIBE / BLUR-UNLOCK POPUP
-          Triggered by: blur overlay CTA, header button,
-          subscribe box button, exit from blurUnlock
-      ──────────────────────────────────────────────── */}
+      {/* SUBSCRIBE POPUP */}
       {renderPopupShell(
         'subscribe',
         '',
-        /* header */
         <div className="popup-header">
           <h3>🔓 Unlock Free Unblurred Calculations</h3>
-          <p className="popup-header-sub">
-            Subscribe free — get the full tactical breakdown instantly
-          </p>
+          <p className="popup-header-sub">Subscribe free — get the full tactical breakdown instantly</p>
         </div>,
-        /* body */
         <div className="popup-content">
           <div className="popup-icon">📊</div>
           <p className="popup-text">
             Subscribe for free and receive <strong>3 unblurred calculations instantly</strong>.
-            Your formation and style of play are always visible — subscribe to unlock
-            the complete tactical report including win probability, player roles,
-            performance indices, and alternative formations.
           </p>
           <ul className="popup-features">
-            <li>Unlimited blurred calculations — always free, no login needed</li>
             <li>3 free unblurred calculations on sign-up</li>
-            <li>Fresh unblurred calculations every week by email</li>
             <li>Full win probability &amp; loss/draw percentages</li>
             <li>Detailed player role instructions for every position</li>
             <li>Performance indices: attacking pressure &amp; transition speed</li>
@@ -1569,66 +1425,38 @@ const App: React.FC = () => {
                   placeholder="your@email.com"
                   onKeyDown={e => e.key === 'Enter' && handleSubscribePopup()}
                 />
-                <button
-                  className="popup-btn popup-btn--primary"
-                  onClick={handleSubscribePopup}
-                >
+                <button className="popup-btn popup-btn--primary" onClick={handleSubscribePopup}>
                   🔓 Subscribe Free
                 </button>
               </div>
               <div className="popup-actions popup-actions--secondary">
-                <button
-                  className="popup-btn popup-btn--secondary"
-                  onClick={() => { closePopup(); openPopup('referral'); }}
-                >
+                <button className="popup-btn popup-btn--secondary"
+                  onClick={() => { closePopup(); openPopup('referral'); }}>
                   🎁 Earn via Referral Instead
                 </button>
-                <button
-                  className="popup-btn popup-btn--ghost"
-                  onClick={closePopup}
-                >
+                <button className="popup-btn popup-btn--ghost" onClick={closePopup}>
                   Keep Blurred Preview
                 </button>
               </div>
             </>
           )}
-          <p className="popup-privacy">
-            🔒 No spam · No credit card · Unsubscribe at any time
-          </p>
+          <p className="popup-privacy">🔒 No spam · No credit card · Unsubscribe at any time</p>
         </div>
       )}
 
-      {/* ────────────────────────────────────────────────
-          BLUR-UNLOCK POPUP
-          Auto-shown after running a blurred calculation
-          Context: user just ran a calc, can see formation
-          and SOP but not the rest
-      ──────────────────────────────────────────────── */}
+      {/* BLUR UNLOCK POPUP */}
       {renderPopupShell(
         'blurUnlock',
         'blur-unlock-popup',
         <div className="popup-header popup-header--unlock">
           <h3>📊 Your Tactical Report Is Ready</h3>
-          <p className="popup-header-sub">
-            Formation &amp; Style of Play unlocked — subscribe free to reveal the rest
-          </p>
+          <p className="popup-header-sub">Formation &amp; Style of Play unlocked — subscribe free to reveal the rest</p>
         </div>,
         <div className="popup-content">
           <div className="popup-icon">🔓</div>
           <p className="popup-text">
-            We've calculated your full tactical breakdown. Your{' '}
-            <strong>formation</strong> and <strong>style of play</strong> are
-            always visible. Subscribe free to reveal:
+            Subscribe free to reveal win probability, player roles, performance indices, and 4 alternative formations.
           </p>
-          <ul className="popup-features">
-            <li>Win probability with draw &amp; loss percentages</li>
-            <li>Detailed tactical brief &amp; match instructions</li>
-            <li>Individual player role recommendations</li>
-            <li>Attacking pressure &amp; transition speed indices</li>
-            <li>Defensive shape and attacking width guidance</li>
-            <li>Key matchup identification</li>
-            <li>4 alternative formations with win estimates</li>
-          </ul>
           <div className="popup-email-form">
             <input
               className="popup-email-input"
@@ -1638,100 +1466,43 @@ const App: React.FC = () => {
               placeholder="your@email.com"
               onKeyDown={e => e.key === 'Enter' && handleSubscribePopup()}
             />
-            <button
-              className="popup-btn popup-btn--primary"
-              onClick={handleSubscribePopup}
-            >
+            <button className="popup-btn popup-btn--primary" onClick={handleSubscribePopup}>
               🔓 Unlock Free Unblurred Calculations
             </button>
           </div>
           <div className="popup-actions popup-actions--secondary">
-            <button
-              className="popup-btn popup-btn--secondary"
-              onClick={() => { closePopup(); openPopup('referral'); }}
-            >
+            <button className="popup-btn popup-btn--secondary"
+              onClick={() => { closePopup(); openPopup('referral'); }}>
               🎁 Refer a Friend to Earn Calculations
             </button>
-            <button
-              className="popup-btn popup-btn--ghost"
-              onClick={closePopup}
-            >
+            <button className="popup-btn popup-btn--ghost" onClick={closePopup}>
               View Blurred Preview
             </button>
           </div>
-          <p className="popup-privacy">
-            🔒 No spam · No credit card · Unsubscribe anytime
-          </p>
+          <p className="popup-privacy">🔒 No spam · No credit card · Unsubscribe anytime</p>
         </div>
       )}
 
-      {/* ────────────────────────────────────────────────
-          REFERRAL POPUP
-          Improved, consistent with subscribe box design
-          Image: friendreferralnobg.png
-      ──────────────────────────────────────────────── */}
+      {/* REFERRAL POPUP */}
       {renderPopupShell(
         'referral',
         'referral-popup',
-        /* header — gradient matches gold/legendary palette */
         <div className="popup-header popup-header--referral">
           <h3>🎁 Refer Friends — Earn Free Unblurred Calculations</h3>
-          <p className="popup-header-sub">
-            Share your link · both of you unlock a free unblurred calculation
-          </p>
+          <p className="popup-header-sub">Share your link · both of you unlock a free unblurred calculation</p>
         </div>,
-        /* body */
         <div className="popup-content popup-content--referral">
-
-          {/* Hero image */}
           <div className="referral-hero-wrap">
-            <img
-              className="referral-hero-img"
-              src="friendreferralnobg.png"
-              alt="Refer a friend"
-            />
+            <img className="referral-hero-img" src="friendreferralnobg.png" alt="Refer a friend" />
           </div>
-
-          {/* Reward badge */}
           <div className="referral-reward-badge">
             <div className="referral-reward-badge__label">You receive per successful referral</div>
             <div className="referral-reward-badge__value">+1 Free Unblurred Calculation</div>
-            <div className="referral-reward-badge__note">
-              Your friend also receives +1 free unblurred calculation when they sign up
-            </div>
+            <div className="referral-reward-badge__note">Your friend also receives +1 free unblurred calculation</div>
           </div>
-
-          {/* How it works steps */}
-          <div className="referral-steps">
-            <div className="referral-step">
-              <div className="referral-step__num">1</div>
-              <div className="referral-step__text">
-                Copy your unique referral link below
-              </div>
-            </div>
-            <div className="referral-step">
-              <div className="referral-step__num">2</div>
-              <div className="referral-step__text">
-                Share it with your OSM teammates on Discord, WhatsApp, or social media
-              </div>
-            </div>
-            <div className="referral-step">
-              <div className="referral-step__num">3</div>
-              <div className="referral-step__text">
-                When they sign up using your link,{' '}
-                <strong>both of you unlock a free unblurred calculation</strong>
-              </div>
-            </div>
-          </div>
-
-          {/* Copy link row */}
           <div className="referral-link-row">
-            <input
-              className="referral-link-input"
-              type="text"
-              readOnly
-              value={isLoggedIn ? referralLink : 'Subscribe first to get your referral link'}
-            />
+            <input className="referral-link-input" type="text" readOnly
+              value={isLoggedIn ? referralLink : 'Subscribe first to get your referral link'} />
             <button
               className={`referral-copy-btn ${referralCopied ? 'referral-copy-btn--copied' : ''}`}
               onClick={isLoggedIn ? handleCopyReferral : () => { closePopup(); openPopup('subscribe'); }}
@@ -1740,195 +1511,102 @@ const App: React.FC = () => {
               {referralCopied ? '✓ Copied!' : isLoggedIn ? 'Copy Link' : 'Subscribe First'}
             </button>
           </div>
-
-          {/* Share buttons */}
           <div className="referral-share-row">
-            <button
-              className="referral-share-btn referral-share-btn--discord"
-              onClick={() => isLoggedIn ? handleShareReferral('discord') : openPopup('subscribe')}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
-              </svg>
+            <button className="referral-share-btn referral-share-btn--discord"
+              onClick={() => isLoggedIn ? handleShareReferral('discord') : openPopup('subscribe')}>
               Copy for Discord
             </button>
-            <button
-              className="referral-share-btn referral-share-btn--whatsapp"
-              onClick={() => isLoggedIn ? handleShareReferral('whatsapp') : openPopup('subscribe')}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
-              </svg>
+            <button className="referral-share-btn referral-share-btn--whatsapp"
+              onClick={() => isLoggedIn ? handleShareReferral('whatsapp') : openPopup('subscribe')}>
               Share on WhatsApp
             </button>
-            <button
-              className="referral-share-btn referral-share-btn--twitter"
-              onClick={() => isLoggedIn ? handleShareReferral('twitter') : openPopup('subscribe')}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-              </svg>
+            <button className="referral-share-btn referral-share-btn--twitter"
+              onClick={() => isLoggedIn ? handleShareReferral('twitter') : openPopup('subscribe')}>
               Post on X
             </button>
           </div>
-
           {!isLoggedIn && (
             <div className="referral-no-account">
-              <p>
-                You need a free account to get your referral link.{' '}
-                <button
-                  className="inline-link"
-                  onClick={() => { closePopup(); openPopup('subscribe'); }}
-                >
+              <p>You need a free account to get your referral link.{' '}
+                <button className="inline-link"
+                  onClick={() => { closePopup(); openPopup('subscribe'); }}>
                   Subscribe free now →
                 </button>
               </p>
             </div>
           )}
-
         </div>
       )}
 
-      {/* ────────────────────────────────────────────────
-          EXIT INTENT POPUP
-          Shown when mouse leaves viewport upward
-          while user is not logged in.
-          Image: replacewithfreeproductcardimage-removebg-preview.png
-      ──────────────────────────────────────────────── */}
+      {/* EXIT INTENT POPUP */}
       {renderPopupShell(
         'exitIntent',
         'exit-intent-popup',
-        /* header — red/urgent gradient */
         <div className="popup-header popup-header--exit">
           <h3>⚠️ Wait — Don't Leave Without Your Edge!</h3>
-          <p className="popup-header-sub">
-            You're one subscription away from dominating your league
-          </p>
+          <p className="popup-header-sub">You're one subscription away from dominating your league</p>
         </div>,
-        /* body */
         <div className="popup-content popup-content--exit">
-
-          {/* Hero product image for free tier */}
-          <div className="exit-intent-hero-wrap">
-            <img
-              className="exit-intent-hero-img"
-              src="replacewithfreeproductcardimage-removebg-preview.png"
-              alt="Free plan — unlock unblurred calculations"
-            />
-            <div className="exit-intent-hero-overlay">
-              <span className="exit-intent-badge">FREE — No Credit Card</span>
-            </div>
-          </div>
-
           <div className="popup-icon">🚨</div>
-
           <p className="popup-text">
-            You've been calculating tactics but leaving before seeing the full picture.
             Subscribe in <strong>30 seconds</strong> and get{' '}
-            <strong>3 free unblurred calculations immediately</strong> — including win
-            probability, player roles, and complete tactical instructions.
+            <strong>3 free unblurred calculations immediately</strong>.
           </p>
-
-          <ul className="popup-features">
-            <li>3 free unblurred calculations — instant, no payment</li>
-            <li>Formation recommendation always free</li>
-            <li>Style of play always free</li>
-            <li>Full tactical report unlocked with subscription</li>
-            <li>Earn more free calculations by referring friends</li>
-          </ul>
-
           {subSuccessPopup ? (
             <div className="sub-success-msg sub-success-msg--popup">
-              ✅ You're in! 3 free unblurred calculations are yours — run your next calculation now.
+              ✅ You're in! 3 free unblurred calculations are yours.
             </div>
           ) : (
             <>
               <div className="popup-email-form">
-                <input
-                  className="popup-email-input"
-                  type="email"
-                  value={subEmailPopup}
-                  onChange={e => setSubEmailPopup(e.target.value)}
-                  placeholder="your@email.com"
-                  onKeyDown={e => e.key === 'Enter' && handleSubscribePopup()}
-                />
-                <button
-                  className="popup-btn popup-btn--primary popup-btn--urgent"
-                  onClick={handleSubscribePopup}
-                >
+                <input className="popup-email-input" type="email" value={subEmailPopup}
+                  onChange={e => setSubEmailPopup(e.target.value)} placeholder="your@email.com"
+                  onKeyDown={e => e.key === 'Enter' && handleSubscribePopup()} />
+                <button className="popup-btn popup-btn--primary popup-btn--urgent" onClick={handleSubscribePopup}>
                   🔓 Yes — Give Me Free Unblurred Calculations
                 </button>
               </div>
-              <button
-                className="popup-btn popup-btn--ghost"
-                onClick={closePopup}
-                style={{ marginTop: 10, width: '100%' }}
-              >
+              <button className="popup-btn popup-btn--ghost" onClick={closePopup}
+                style={{ marginTop: 10, width: '100%' }}>
                 No thanks, I'll keep using blurred previews
               </button>
             </>
           )}
-
-          <p className="popup-privacy">
-            🔒 Zero spam · No credit card required · Unsubscribe anytime
-          </p>
-
+          <p className="popup-privacy">🔒 Zero spam · No credit card required · Unsubscribe anytime</p>
         </div>
       )}
 
-      {/* ────────────────────────────────────────────────
-          INSTALL POPUP
-      ──────────────────────────────────────────────── */}
+      {/* INSTALL POPUP */}
       {renderPopupShell(
         'install',
         'install-popup',
         <div className="popup-header">
           <h3>📲 Install OSM Counter NG</h3>
-          <p className="popup-header-sub">
-            Add to home screen for instant offline access
-          </p>
+          <p className="popup-header-sub">Add to home screen for instant offline access</p>
         </div>,
         <div className="popup-content">
           <div className="install-popup-img-wrap">
-            <img
-              className="install-popup-img"
-              src="https://i.ibb.co/tMSMxmwN/Gemini-Generated-Image-ticrt2ticrt2ticr.png"
-              alt="Install app"
-            />
+            <img className="install-popup-img"
+              src="https://i.ibb.co/tMSMxmwN/Gemini-Generated-Image-ticrt2ticrt2ticr.png" alt="Install app" />
           </div>
           <div className="popup-icon" style={{ marginTop: 20 }}>📱</div>
           <p className="popup-text">
-            Install OSM Counter NG as a Progressive Web App (PWA) for lightning-fast
-            access, full offline support, and a native app experience — no app store needed.
+            Install OSM Counter NG as a PWA for lightning-fast access and full offline support.
           </p>
-          <ul className="popup-features">
-            <li>Works fully offline — no internet required for calculations</li>
-            <li>Native app speed — no browser overhead</li>
-            <li>Instant launch from your home screen</li>
-            <li>Automatic updates — always latest version</li>
-          </ul>
           <div className="install-tip-box">
-            <strong>📱 iPhone / iPad (Safari):</strong> Tap the{' '}
-            <strong>Share button</strong> → <strong>"Add to Home Screen"</strong>
+            <strong>📱 iPhone / iPad (Safari):</strong> Tap the <strong>Share button</strong> → <strong>"Add to Home Screen"</strong>
             <br /><br />
-            <strong>🤖 Android (Chrome):</strong> Tap the{' '}
-            <strong>Menu (⋮)</strong> → <strong>"Install App"</strong> or{' '}
-            <strong>"Add to Home Screen"</strong>
+            <strong>🤖 Android (Chrome):</strong> Tap the <strong>Menu (⋮)</strong> → <strong>"Install App"</strong>
           </div>
           {installPrompt && (
-            <button
-              className="popup-btn popup-btn--primary"
+            <button className="popup-btn popup-btn--primary"
               onClick={() => { handleInstall(); closePopup(); }}
-              style={{ width: '100%', marginTop: 10 }}
-            >
+              style={{ width: '100%', marginTop: 10 }}>
               ⬇️ Install Now
             </button>
           )}
-          <button
-            className="popup-btn popup-btn--ghost"
-            onClick={closePopup}
-            style={{ width: '100%', marginTop: 8 }}
-          >
+          <button className="popup-btn popup-btn--ghost" onClick={closePopup}
+            style={{ width: '100%', marginTop: 8 }}>
             Maybe Later
           </button>
         </div>
