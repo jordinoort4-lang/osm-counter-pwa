@@ -6,6 +6,8 @@ import React, {
   useMemo,
 } from 'react';
 import './App.css';
+import { BannerAdmin } from './components/BannerAdmin';
+import { fetchBannerData, BannerData } from './lib/bannerManager';
 
 // ============================================================
 //  TYPES & INTERFACES
@@ -320,6 +322,8 @@ const App: React.FC = () => {
 
   // ── UI / popup state ──────────────────────────────────────
   const [showBanner, setShowBanner] = useState<boolean>(true);
+  const [bannerData, setBannerData] = useState<BannerData | null>(null);
+  const [showBannerAdmin, setShowBannerAdmin] = useState<boolean>(false);
   const [activePopup, setActivePopup] = useState<PopupType>('none');
   const [exitIntentShown, setExitIntentShown] = useState<boolean>(false);
   const [isOffline, setIsOffline] = useState<boolean>(!navigator.onLine);
@@ -377,6 +381,17 @@ const App: React.FC = () => {
   );
 
   // ── Effects ───────────────────────────────────────────────
+
+  // Load banner data on mount
+  useEffect(() => {
+    const loadBanner = async () => {
+      const data = await fetchBannerData();
+      if (data) {
+        setBannerData(data);
+      }
+    };
+    loadBanner();
+  }, []);
 
   useEffect(() => {
     const onOnline  = () => setIsOffline(false);
@@ -700,21 +715,79 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {showBannerAdmin && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            maxWidth: '700px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+          }}>
+            <BannerAdmin
+              onClose={() => {
+                setShowBannerAdmin(false);
+                fetchBannerData().then(data => {
+                  if (data) setBannerData(data);
+                });
+              }}
+              isAdmin={true}
+            />
+          </div>
+        </div>
+      )}
+
       <header>
-        {showBanner && (
+        {showBanner && bannerData && (
           <div id="banner">
             <div className="header-banner">
               <img
-                src="https://i.ibb.co/tMSMxmwN/Gemini-Generated-Image-ticrt2ticrt2ticr.png"
-                alt="OSM Counter NG tactical banner"
+                src={bannerData.imageUrl}
+                alt={`OSM Scout: ${bannerData.playerName}`}
               />
-              <button
-                className="closeBanner"
-                onClick={() => setShowBanner(false)}
-                aria-label="Close banner"
-              >
-                ×
-              </button>
+              <div style={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                display: 'flex',
+                gap: '10px',
+              }}>
+                <button
+                  onClick={() => setShowBannerAdmin(true)}
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                  }}
+                  aria-label="Edit banner"
+                >
+                  ✏️ Edit
+                </button>
+                <button
+                  className="closeBanner"
+                  onClick={() => setShowBanner(false)}
+                  aria-label="Close banner"
+                >
+                  ×
+                </button>
+              </div>
             </div>
           </div>
         )}
