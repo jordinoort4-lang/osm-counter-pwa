@@ -2512,14 +2512,11 @@ main.glass {
 }
 
 
-/* ─────────────────────────────────────────────────────────────────────
-   QUICK COUNTER SECTION — HIDDEN
-───────────────────────────────────────────────────────────────────── */
-/* Hide the Quick Counter section by targeting the nth-child */
-.glass > section:nth-of-type(1) {
+/* Quick Counter Section Hidden */
+.glass > section:first-of-type {
   display: none !important;
 }
 
-.glass > .card:nth-of-type(1) {
+.glass > :nth-child(1) {
   display: none !important;
 }
