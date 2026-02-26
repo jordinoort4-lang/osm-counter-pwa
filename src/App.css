@@ -2510,3 +2510,16 @@ main.glass {
 @media (max-height: 720px) and (min-width: 900px) and (orientation: landscape) {
   .pricing-grid { grid-template-columns: repeat(4, 1fr); }
 }
+
+
+/* ─────────────────────────────────────────────────────────────────────
+   QUICK COUNTER SECTION — HIDDEN
+───────────────────────────────────────────────────────────────────── */
+/* Hide the Quick Counter section by targeting the nth-child */
+.glass > section:nth-of-type(1) {
+  display: none !important;
+}
+
+.glass > .card:nth-of-type(1) {
+  display: none !important;
+}
