@@ -34,21 +34,15 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
     }
   }, [isOpen]);
 
-  const handleClaim = () => {
-    setStep(2);
-  };
+  const handleClaim = () => setStep(2);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
     await new Promise(resolve => setTimeout(resolve, 1500));
-    
     setLoading(false);
     setSuccess(true);
-    
     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-    
     setTimeout(() => {
       onSubmit(email);
       onClose();
@@ -81,18 +75,15 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
             onDragEnd={handleDragEnd}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Drag indicator */}
             <div className="gtm-drag-handle">
               <ChevronDown size={24} color="#FFD700" />
             </div>
 
-            {/* Close button */}
             <button className="gtm-close" onClick={onClose}>
               <X size={24} color="#fff" />
             </button>
 
-            {/* Background Image */}
-            <div 
+            <div
               className="gtm-bg-image"
               style={{
                 backgroundImage: 'url("https://i.ibb.co/VWdZ0dZz/your-image.png")',
@@ -101,17 +92,14 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
               }}
             />
 
-            {/* Gradient overlay */}
             <div className="gtm-gradient" />
 
-            {/* Confetti */}
             <div className="gtm-confetti">
               {[...Array(20)].map((_, i) => (
                 <div key={i} className={`confetti-piece piece-${i}`} />
               ))}
             </div>
 
-            {/* Content */}
             <div className="gtm-content">
               {step === 1 ? (
                 <motion.div
@@ -120,7 +108,7 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
                 >
-                  <motion.div 
+                  <motion.div
                     className="gtm-trophy"
                     animate={{ rotate: [0, -10, 10, 0], scale: [1, 1.1, 1] }}
                     transition={{ duration: 2, repeat: Infinity }}
@@ -128,7 +116,7 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
                     <Trophy size={48} color="#FFD700" fill="#FFD700" />
                   </motion.div>
 
-                  <motion.h1 
+                  <motion.h1
                     className="gtm-title"
                     initial={{ opacity: 0, scale: 0.5 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -137,7 +125,7 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
                     🏆 CONGRATULATIONS 🏆
                   </motion.h1>
 
-                  <motion.div 
+                  <motion.div
                     className="gtm-message"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -180,7 +168,7 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
                   {!success ? (
                     <>
                       <h2 className="gtm-subtitle">Secure Your Golden Ticket</h2>
-                      
+
                       <form onSubmit={handleSubmit} className="gtm-form">
                         <div className="gtm-input-group">
                           <Mail size={20} color="#FFD700" />
@@ -202,7 +190,6 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
                               <span>Check your inbox for activation</span>
                             </div>
                           </div>
-                          
                           <div className="gtm-benefit">
                             <TrendingUp size={20} color="#00CED1" />
                             <div>
@@ -229,15 +216,10 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
                         </motion.button>
                       </form>
 
-                      <button 
-                        className="gtm-back"
-                        onClick={() => setStep(1)}
-                      >
-                        ← Back
-                      </button>
+                      <button className="gtm-back" onClick={() => setStep(1)}>← Back</button>
                     </>
                   ) : (
-                    <motion.div 
+                    <motion.div
                       className="gtm-success"
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
