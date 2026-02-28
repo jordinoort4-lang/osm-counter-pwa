@@ -11,15 +11,13 @@ interface GoldenTicketModalProps {
 
 const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, onSubmit }) => {
   const [email, setEmail] = useState('');
-  const [step, setStep] = useState(1); // 1 = celebration, 2 = email form
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // Lock body scroll when open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
-      // Haptic feedback on open
       if (navigator.vibrate) navigator.vibrate(50);
     } else {
       document.body.style.overflow = 'unset';
@@ -27,7 +25,6 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
     return () => { document.body.style.overflow = 'unset'; };
   }, [isOpen]);
 
-  // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
       setStep(1);
@@ -45,7 +42,6 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
     e.preventDefault();
     setLoading(true);
     
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     setLoading(false);
@@ -59,7 +55,7 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
     }, 2000);
   };
 
-  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: { offset: { y: number } }) => {
+  const handleDragEnd = (_: unknown, info: { offset: { y: number } }) => {
     if (info.offset.y > 100) onClose();
   };
 
@@ -95,7 +91,7 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
               <X size={24} color="#fff" />
             </button>
 
-            {/* Background Image - YOUR IMAGE HERE */}
+            {/* Background Image */}
             <div 
               className="gtm-bg-image"
               style={{
@@ -124,7 +120,6 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
                 >
-                  {/* Trophy icon */}
                   <motion.div 
                     className="gtm-trophy"
                     animate={{ rotate: [0, -10, 10, 0], scale: [1, 1.1, 1] }}
@@ -133,7 +128,6 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
                     <Trophy size={48} color="#FFD700" fill="#FFD700" />
                   </motion.div>
 
-                  {/* Title */}
                   <motion.h1 
                     className="gtm-title"
                     initial={{ opacity: 0, scale: 0.5 }}
@@ -143,7 +137,6 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
                     🏆 CONGRATULATIONS 🏆
                   </motion.h1>
 
-                  {/* Main message */}
                   <motion.div 
                     className="gtm-message"
                     initial={{ opacity: 0 }}
@@ -155,7 +148,6 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
                     <p className="gtm-line">FOR EACH WEEK</p>
                   </motion.div>
 
-                  {/* Sparkles */}
                   <motion.div
                     className="gtm-sparkles"
                     animate={{ opacity: [0.5, 1, 0.5] }}
@@ -164,7 +156,6 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
                     <Sparkles size={32} color="#FFD700" />
                   </motion.div>
 
-                  {/* CTA Button */}
                   <motion.button
                     className="gtm-btn-primary"
                     onClick={handleClaim}
@@ -177,7 +168,6 @@ const GoldenTicketModal: React.FC<GoldenTicketModalProps> = ({ isOpen, onClose, 
                     <Sparkles size={20} />
                   </motion.button>
 
-                  {/* Trust text */}
                   <p className="gtm-trust">Join 10,000+ managers dominating OSM</p>
                 </motion.div>
               ) : (
