@@ -1,113 +1,57 @@
 import { supabase } from '../supabase';
 
 export interface BannerData {
-  id?: string;
-  playerName: string;
-  age: number;
-  marketValue: string;
-  position: string;
-  rating: number;
-  imageUrl: string;
-  description: string;
-  createdAt?: string;
-  updatedAt?: string;
+    id?: string;
+    playerName: string;
+    age: number;
+    marketValue: string;
+    position: string;
+    rating: number;
+    imageUrl: string;
+    description: string;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
+// Static banner image URL from Supabase
+const STATIC_BANNER_IMAGE = 'https://REDACTED.supabase.co/storage/v1/object/public/ef/Gemini_Generated_Image_3q1iy3q1iy3q1iy3.png';
+
 /**
- * Fetch the current banner data from Supabase
+ * Fetch the current banner data
+ * Now returns a static banner as requested
  */
 export const fetchBannerData = async (): Promise<BannerData | null> => {
-  try {
-    const { data, error } = await supabase
-      .from('osm_banner')
-      .select('*')
-      .order('updatedAt', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error) {
-      console.error('[Banner] Fetch error:', error);
-      return null;
-    }
-
-    return data as BannerData;
-  } catch (err) {
-    console.error('[Banner] Exception:', err);
-    return null;
-  }
+    return {
+          playerName: 'Legendary Strategist',
+          age: 2026,
+          marketValue: '€100M+',
+          position: 'Manager',
+          rating: 99,
+          imageUrl: STATIC_BANNER_IMAGE,
+          description: 'Mastering the art of OSM tactics with 78% reverse-engineered precision.',
+          updatedAt: new Date().toISOString()
+    };
 };
 
 /**
- * Update or create banner data
+ * Update or create banner data (Disabled for static mode)
  */
 export const updateBannerData = async (bannerData: BannerData): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from('osm_banner')
-      .upsert([
-        {
-          ...bannerData,
-          updatedAt: new Date().toISOString(),
-        },
-      ], { onConflict: 'id' });
-
-    if (error) {
-      console.error('[Banner] Update error:', error);
-      return false;
-    }
-
+    console.log('Banner updates are disabled in static mode');
     return true;
-  } catch (err) {
-    console.error('[Banner] Update exception:', err);
-    return false;
-  }
 };
 
 /**
- * Create a new banner entry
+ * Create a new banner entry (Disabled for static mode)
  */
 export const createBannerEntry = async (bannerData: BannerData): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from('osm_banner')
-      .insert([
-        {
-          ...bannerData,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ]);
-
-    if (error) {
-      console.error('[Banner] Create error:', error);
-      return false;
-    }
-
+    console.log('Banner creation is disabled in static mode');
     return true;
-  } catch (err) {
-    console.error('[Banner] Create exception:', err);
-    return false;
-  }
 };
 
 /**
- * Get all banner history
+ * Get all banner history (Returns empty in static mode)
  */
 export const getBannerHistory = async (): Promise<BannerData[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('osm_banner')
-      .select('*')
-      .order('updatedAt', { ascending: false });
-
-    if (error) {
-      console.error('[Banner] History fetch error:', error);
-      return [];
-    }
-
-    return data as BannerData[];
-  } catch (err) {
-    console.error('[Banner] History fetch exception:', err);
     return [];
-  }
 };
