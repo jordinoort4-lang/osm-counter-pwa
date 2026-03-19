@@ -1,9 +1,97 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { devLog, devWarn } from './lib/logger';
 
 // ── Supabase credentials ──────────────────────────────────────────────
-// These are hardcoded here because Vercel env vars weren't loading.
-// The anon key is safe to expose in frontend code (it's row-level-security protected).
-const SUPABASE_URL  = 'https://REDACTED.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnenF1eWx3Y2xld2NncHFub2lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2MzA0NzMsImV4cCI6MjA4NjIwNjQ3M30._iwiKPVMel-G2trMR_upwJEM0833pd-GcZEWgvzz55w';
+// Required environment variables:
+// - VITE_SUPABASE_URL: Your Supabase project URL
+// - VITE_SUPABASE_ANON_KEY: Your Supabase anon key
+//
+// Set these in:
+// - Local: Create a .env file (gitignored)
+// - Vercel: Project Settings → Environment Variables
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+const getSupabaseUrl = (): string | null => {
+  return import.meta.env.VITE_SUPABASE_URL || null;
+};
+
+const getSupabaseAnonKey = (): string | null => {
+  return import.meta.env.VITE_SUPABASE_ANON_KEY || null;
+};
+
+/**
+ * Check if Supabase is properly configured with environment variables.
+ */
+export const isSupabaseConfigured = (): boolean => {
+  return !!(getSupabaseUrl() && getSupabaseAnonKey());
+};
+
+/**
+ * Lazy-initialized Supabase client.
+ * Returns null if environment variables are missing (graceful degradation).
+ * Use isSupabaseConfigured() to check availability before use.
+ */
+let _supabase: SupabaseClient | null = null;
+let _initError: string | null = null;
+
+const initSupabase = (): SupabaseClient | null => {
+  const url = getSupabaseUrl();
+  const key = getSupabaseAnonKey();
+  
+  if (!url || !key) {
+    const missing = !url ? 'VITE_SUPABASE_URL' : 'VITE_SUPABASE_ANON_KEY';
+    _initError = `[Supabase] Missing ${missing}. Create a .env file from env.example or set Vercel environment variables.`;
+    devWarn(_initError);
+    return null;
+  }
+  
+  try {
+    _supabase = createClient(url, key);
+    devLog('[Supabase] Client initialized successfully');
+    return _supabase;
+  } catch (err) {
+    _initError = err instanceof Error ? err.message : '[Supabase] Failed to initialize client';
+    devWarn(_initError);
+    return null;
+  }
+};
+
+/**
+ * Get the Supabase client instance.
+ * Returns null if not configured - handle gracefully in components.
+ *
+ * @example
+ * const client = getSupabase();
+ * if (!client) {
+ *   // Show graceful error or fallback
+ *   return;
+ * }
+ */
+export const getSupabase = (): SupabaseClient | null => {
+  if (!_supabase) {
+    return initSupabase();
+  }
+  return _supabase;
+};
+
+/**
+ * Get any initialization error that occurred.
+ * Useful for debugging configuration issues.
+ */
+export const getSupabaseError = (): string | null => {
+  return _initError;
+};
+
+/**
+ * @deprecated Use getSupabase() instead for lazy initialization.
+ * This export returns null to alert developers to migrate.
+ *
+ * Migration:
+ *   Old: import { supabase } from './supabase';
+ *   New: import { getSupabase, isSupabaseConfigured } from './supabase';
+ *        const client = getSupabase();
+ *        if (!client) {
+ *          // Handle missing configuration
+ *          return;
+ *        }
+ */
+export const supabase: SupabaseClient | null = null;

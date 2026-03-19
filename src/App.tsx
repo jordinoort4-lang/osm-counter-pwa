@@ -6,6 +6,9 @@ import React, {
   useMemo,
 } from 'react';
 import './App.css';
+import { fetchBannerData, fetchSupabaseImages, BannerData } from './lib/bannerManager';
+import { devLog, devWarn } from './lib/logger';
+import { isSupabaseConfigured, getSupabaseError } from './supabase';
 
 // ============================================================
 //  TYPES & INTERFACES
@@ -320,9 +323,12 @@ const App: React.FC = () => {
 
   // ── UI / popup state ──────────────────────────────────────
   const [showBanner, setShowBanner] = useState<boolean>(true);
+  const [bannerData, setBannerData] = useState<BannerData | null>(null);
+  const [supabaseImages, setSupabaseImages] = useState<string[]>([]);
   const [activePopup, setActivePopup] = useState<PopupType>('none');
   const [exitIntentShown, setExitIntentShown] = useState<boolean>(false);
   const [isOffline, setIsOffline] = useState<boolean>(!navigator.onLine);
+  const [showConfigWarning, setShowConfigWarning] = useState<boolean>(false);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   // FIX: setIsStandalone renamed with _ prefix to suppress TS6133
   const [isStandalone, _setIsStandalone] = useState<boolean>(
@@ -387,6 +393,44 @@ const App: React.FC = () => {
       window.removeEventListener('online',  onOnline);
       window.removeEventListener('offline', onOffline);
     };
+  }, []);
+
+  // Fetch banner data from Supabase
+  useEffect(() => {
+    const loadBanner = async () => {
+      try {
+        // Use Promise.allSettled to handle partial failures gracefully
+        const [bannerResult, imagesResult] = await Promise.allSettled([
+          fetchBannerData(),
+          fetchSupabaseImages()
+        ]);
+        
+        if (bannerResult.status === 'fulfilled' && bannerResult.value) {
+          setBannerData(bannerResult.value);
+        } else if (bannerResult.status === 'rejected') {
+          devWarn('[App] Failed to load banner data:', bannerResult.reason);
+        }
+        
+        if (imagesResult.status === 'fulfilled' && imagesResult.value.length > 0) {
+          setSupabaseImages(imagesResult.value);
+          devLog('[App] Loaded Supabase images:', imagesResult.value);
+        } else if (imagesResult.status === 'rejected') {
+          devWarn('[App] Failed to load Supabase images:', imagesResult.reason);
+        }
+      } catch (error) {
+        devWarn('[App] Failed to load banner:', error);
+      }
+    };
+    loadBanner();
+  }, []);
+
+  // Check Supabase configuration on mount (only in development)
+  useEffect(() => {
+    if (import.meta.env.DEV && !isSupabaseConfigured()) {
+      const error = getSupabaseError();
+      devWarn('[App] Supabase not configured:', error || 'Missing environment variables');
+      setShowConfigWarning(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -662,6 +706,20 @@ const App: React.FC = () => {
         ⚠️ You are offline — calculations use cached data
       </div>
 
+      {showConfigWarning && (
+        <div className="config-warning-banner">
+          ⚠️ <strong>Configuration Missing:</strong> Supabase environment variables not set.
+          Copy <code>env.example</code> to <code>.env</code> and restart the dev server.
+          <button
+            className="config-warning-close"
+            onClick={() => setShowConfigWarning(false)}
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {isStandalone && !isLoggedIn && (
         <div className="pwa-login-overlay">
           <div className="pwa-login-modal">
@@ -705,8 +763,16 @@ const App: React.FC = () => {
           <div id="banner">
             <div className="header-banner">
               <img
-                src="https://i.ibb.co/tMSMxmwN/Gemini-Generated-Image-ticrt2ticrt2ticr.png"
+                src={
+                  // Priority: bannerData.imageUrl (configured) > supabaseImages[0] (first in bucket) > local fallback
+                  bannerData?.imageUrl || 
+                  (supabaseImages.length > 0 ? supabaseImages[0] : '/images/freeproductcardimage-removebg-preview.png')
+                }
                 alt="OSM Counter NG tactical banner"
+                onError={(e) => {
+                  // Fallback to local image if Supabase image fails
+                  (e.target as HTMLImageElement).src = '/images/freeproductcardimage-removebg-preview.png';
+                }}
               />
               <button
                 className="closeBanner"

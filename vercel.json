@@ -1,4 +1,7 @@
 {
+  "$comment": "Required Environment Variables in Vercel Dashboard:",
+  "$comment_2": "VITE_SUPABASE_URL = https://eljlxaowizfjmpndmsqc.supabase.co",
+  "$comment_3": "VITE_SUPABASE_ANON_KEY = your_supabase_anon_key",
   "rewrites": [
     {
       "source": "/((?!sw\\.js|manifest\\.json|icon|images|assets).*)",

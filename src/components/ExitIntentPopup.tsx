@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "../supabase";
+import { getSupabase, isSupabaseConfigured } from "../supabase";
 
 interface ExitIntentPopupProps {
   isOpen: boolean;
@@ -29,8 +29,20 @@ export default function ExitIntentPopup({
     }
 
     try {
+      // Check if Supabase is configured before attempting to use it
+      if (!isSupabaseConfigured()) {
+        setError("Service temporarily unavailable. Please try again later.");
+        return;
+      }
+
+      const supabaseClient = getSupabase();
+      if (!supabaseClient) {
+        setError("Service temporarily unavailable. Please try again later.");
+        return;
+      }
+      
       // Send magic link via Supabase
-      const { error: otpError } = await supabase.auth.signInWithOtp({
+      const { error: otpError } = await supabaseClient.auth.signInWithOtp({
         email: email.trim(),
         options: {
           emailRedirectTo: window.location.origin,

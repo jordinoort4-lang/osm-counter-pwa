@@ -31,10 +31,31 @@
 git clone https://github.com/jordinoort4-lang/osm-counter-pwa.git
 cd osm-counter-pwa
 npm install
+cp env.example .env  # Configure Supabase credentials
 npm run dev        # http://localhost:5173
 npm run build      # production build → dist/
 npm run preview    # preview production build locally
 ```
+
+---
+
+## Environment Variables
+
+### Local Development
+Create a `.env` file (already gitignored) with:
+```
+VITE_SUPABASE_URL=https://eljlxaowizfjmpndmsqc.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_key
+```
+
+### Vercel Deployment
+Add these environment variables in **Vercel Dashboard → Project Settings → Environment Variables**:
+
+| Variable | Value |
+|----------|-------|
+| `VITE_SUPABASE_URL` | `https://eljlxaowizfjmpndmsqc.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Your Supabase anon key |
+| `VITE_SUPABASE_BANNER_IMAGE` | Banner image filename in storage (optional, defaults to `Gemini_Generated_Image_3q1iy3q1iy3q1iy3.png`) |
 
 ---
 
@@ -80,7 +101,7 @@ causes a **hard build error**. Prefix with `_` to suppress: `_setHasPaidPlan`.
 |---------|-----|
 | Stale code after deploy | Bump `CACHE_VERSION` in `public/sw.js`, push, hard-reload |
 | Images 404 | Confirm files are in `public/images/`, src uses `/images/filename.png` |
-| `supabaseUrl is required` | Check `src/supabase.ts` has the URL hardcoded |
+| `supabaseUrl is required` | Check .env has VITE_SUPABASE_URL, or Vercel env vars are set |
 | TypeScript build fails | Prefix unused vars with `_` |
 | SW not registering | Must be HTTPS or localhost; DevTools → Application → Service Workers |
 | Old SW still serving | DevTools → Application → Service Workers → Unregister → hard reload |

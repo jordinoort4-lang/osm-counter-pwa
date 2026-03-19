@@ -197,6 +197,49 @@ h4 {
 }
 
 /* ─────────────────────────────────────────────────────────────────────
+   CONFIG WARNING BANNER
+───────────────────────────────────────────────────────────────────── */
+.config-warning-banner {
+  position:     fixed;
+  top:          70px;
+  left:         50%;
+  transform:    translateX(-50%);
+  background:   #dc3545;
+  color:        #fff;
+  padding:      12px 40px 12px 20px;
+  border-radius:var(--radius-md);
+  z-index:      10002;
+  font-size:    0.9em;
+  box-shadow:   0 6px 20px rgba(0, 0, 0, 0.4);
+  max-width:    90%;
+  text-align:   center;
+}
+
+.config-warning-banner code {
+  background:   rgba(255, 255, 255, 0.2);
+  padding:      2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.config-warning-close {
+  position:     absolute;
+  top:          8px;
+  right:        10px;
+  background:   none;
+  border:       none;
+  color:        #fff;
+  font-size:    1.4em;
+  cursor:       pointer;
+  opacity:      0.8;
+  line-height:  1;
+}
+
+.config-warning-close:hover {
+  opacity: 1;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
    HEADER
 ───────────────────────────────────────────────────────────────────── */
 header {

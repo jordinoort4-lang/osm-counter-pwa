@@ -8,7 +8,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase
-const supabaseUrl = 'https://REDACTED.supabase.co';
+const supabaseUrl = 'https://eljlxaowizfjmpndmsqc.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 if (!supabaseKey) {
@@ -20,7 +20,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Static banner configuration - Mobile optimized
 const STATIC_BANNER = {
-  imageUrl: 'https://REDACTED.supabase.co/storage/v1/object/public/ef/Gemini_Generated_Image_3q1iy3q1iy3q1iy3.png',
+  imageUrl: 'https://eljlxaowizfjmpndmsqc.supabase.co/storage/v1/object/public/ef/Gemini_Generated_Image_3q1iy3q1iy3q1iy3.png',
   title: 'GTO Strategy Calculator',
   description: 'Optimize your OSM strategy with our advanced calculator tool',
   link: '/gto-calculator',
